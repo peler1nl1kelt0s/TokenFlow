@@ -54,7 +54,7 @@ Instead of optimizing for raw, bursty throughput that leads to rate-limiting fai
 *   **Autopilot Installation & Skill Injector**: The global installer automatically appends shell aliases to your profiles and detects which of the **60+ supported coding agents** are installed on your machine, injecting the custom TokenFlow `SKILL.md` directly into their configurations.
 *   **Local LLM Offline Fallback**: Automatically senses internet drops or budget ceilings. If a local Ollama instance is active (`http://localhost:11434`), it converts standard OpenAI/Anthropic stream formats dynamically and fails over to local models (like `llama3`) offline, keeping your agent executing.
 *   **Dual-Mode Visualizer**:
-    *   *Terminal HUD & Telemetry*: Prints interactive queue warnings and a rich ASCII Telemetry Summary report upon command exit.
+    *   *Terminal Status Bar HUD*: Displays a sticky, real-time status line at the bottom of your terminal while running (`[TokenFlow HUD] Queue: 1 | Multiplier: 0.46 | Cost: $0.12`), showing queue sizes and spending metrics dynamically without corrupting the agent output.
     *   *HTML Web Dashboard*: Serves a beautiful glassmorphism real-time dashboard at `http://localhost:8080/dashboard`.
 
 ---

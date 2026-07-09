@@ -61,9 +61,37 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
     shell: true,      // Support shell alias and commands path expansion
   });
 
+  // Setup real-time ANSI Status Bar HUD on TTY terminals
+  let hudInterval: NodeJS.Timeout | null = null;
+  if (process.stderr.isTTY) {
+    hudInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`http://localhost:${port}/api/status`);
+        if (res.ok) {
+          const data = await res.json();
+          const q = data.limits?.requests ?? 0;
+          const mult = data.scaleMultiplier ?? 1.0;
+          const cost = data.cost ?? 0.0;
+          const budget = data.budget ?? 0.0;
+          const budgetStr = budget > 0 ? ` / $${budget.toFixed(2)}` : '';
+          
+          process.stderr.write(`\u001b[s\u001b[999;1H\u001b[2K\u001b[1;44m[TokenFlow HUD] Queue: ${q} | Multiplier: ${mult.toFixed(2)} | Cost: $${cost.toFixed(4)}${budgetStr}\u001b[0m\u001b[u`);
+        }
+      } catch {}
+    }, 1000);
+  }
+
   // Handle process termination signals gracefully
   const cleanExit = async (code: number) => {
     try {
+      if (hudInterval) {
+        clearInterval(hudInterval);
+      }
+      if (process.stderr.isTTY) {
+        // Clear bottom line HUD
+        process.stderr.write('\u001b[s\u001b[999;1H\u001b[2K\u001b[u');
+      }
+
       let stats: any = null;
 
       if (isDaemonShared) {
