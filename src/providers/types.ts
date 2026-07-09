@@ -13,6 +13,7 @@ export interface ProviderRequest {
   stream?: boolean;
   tools?: any[];
   tool_choice?: any;
+  system?: any;
 }
 
 export interface TokenUsage {

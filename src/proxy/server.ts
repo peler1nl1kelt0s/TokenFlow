@@ -8,6 +8,7 @@ import { MultiModelRouter } from './router.js';
 import { TokenFlowCostTracker } from '../core/costTracker.js';
 import { scanRepository } from '../estimators/repoScanner.js';
 import { injectAnthropicCache } from '../core/promptCache.js';
+import { OllamaProvider, isOllamaRunning } from '../providers/ollama.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs/promises';
@@ -44,22 +45,30 @@ export function startProxyServer(config: ProxyServerConfig) {
 
   // Endpoint: OpenAI Format Chat Completions
   app.post('/v1/chat/completions', async (req, res) => {
-    // Budget Guard Check
-    if (costTracker.isBudgetExceeded()) {
-      console.log(picocolors.red(`[Proxy] Blocked request: Session budget limit of $${costTracker.getBudgetLimit().toFixed(4)} reached.`));
-      res.status(402).json({
-        error: {
-          message: `TokenFlow Session Budget Limit Exceeded ($${costTracker.getBudgetLimit().toFixed(4)}).`,
-          type: 'budget_exceeded',
-        }
-      });
-      return;
+    // Budget Guard Check with Ollama Fallback
+    const isBudgetLimit = costTracker.isBudgetExceeded();
+    let useOllamaFallback = false;
+
+    if (isBudgetLimit) {
+      if (await isOllamaRunning()) {
+        useOllamaFallback = true;
+        console.log(picocolors.yellow(`[Budget] Limit reached. Falling back to local offline Ollama execution.`));
+      } else {
+        console.log(picocolors.red(`[Proxy] Blocked request: Session budget limit of $${costTracker.getBudgetLimit().toFixed(4)} reached.`));
+        res.status(402).json({
+          error: {
+            message: `TokenFlow Session Budget Limit Exceeded ($${costTracker.getBudgetLimit().toFixed(4)}).`,
+            type: 'budget_exceeded',
+          }
+        });
+        return;
+      }
     }
 
     const authHeader = req.headers.authorization;
     const apiKey = authHeader ? authHeader.replace('Bearer ', '').trim() : process.env.OPENAI_API_KEY;
 
-    if (!apiKey) {
+    if (!apiKey && !useOllamaFallback) {
       return res.status(401).json({ error: { message: 'OpenAI API key missing in Authorization header or local env.' } });
     }
 
@@ -82,7 +91,7 @@ export function startProxyServer(config: ProxyServerConfig) {
     requestBody.model = route.model;
     console.log(picocolors.cyan(`[Router] Routed request to model: ${route.model}`));
 
-    const provider = new OpenAIProvider(apiKey);
+    const provider = new OpenAIProvider(apiKey || '');
     const tokensEstimate = provider.estimateTokens(requestBody);
     const jobId = `job_openai_${Math.random().toString(36).substring(7)}`;
 
@@ -97,10 +106,26 @@ export function startProxyServer(config: ProxyServerConfig) {
     });
 
     try {
-      const providerResponse = await scheduler.submit(jobId, async () => {
-        console.log(picocolors.green(`[Scheduler] Dispatching Job ${jobId}`));
-        return provider.execute(requestBody, abortController.signal);
-      }, { priority, tokensEstimate });
+      let providerResponse;
+      if (useOllamaFallback) {
+        const ollama = new OllamaProvider();
+        providerResponse = await ollama.execute(requestBody, 'openai', abortController.signal);
+      } else {
+        try {
+          providerResponse = await scheduler.submit(jobId, async () => {
+            console.log(picocolors.green(`[Scheduler] Dispatching Job ${jobId}`));
+            return provider.execute(requestBody, abortController.signal);
+          }, { priority, tokensEstimate });
+        } catch (err: any) {
+          if (await isOllamaRunning()) {
+            console.log(picocolors.yellow(`[Network] Connection failed. Falling back to local offline Ollama execution.`));
+            const ollama = new OllamaProvider();
+            providerResponse = await ollama.execute(requestBody, 'openai', abortController.signal);
+          } else {
+            throw err;
+          }
+        }
+      }
 
       // Copy response status and headers
       res.status(providerResponse.status);
@@ -156,22 +181,30 @@ export function startProxyServer(config: ProxyServerConfig) {
 
   // Endpoint: Anthropic Format Messages
   app.post('/v1/messages', async (req, res) => {
-    // Budget Guard Check
-    if (costTracker.isBudgetExceeded()) {
-      console.log(picocolors.red(`[Proxy] Blocked request: Session budget limit of $${costTracker.getBudgetLimit().toFixed(4)} reached.`));
-      res.status(402).json({
-        error: {
-          message: `TokenFlow Session Budget Limit Exceeded ($${costTracker.getBudgetLimit().toFixed(4)}).`,
-          type: 'budget_exceeded',
-        }
-      });
-      return;
+    // Budget Guard Check with Ollama Fallback
+    const isBudgetLimit = costTracker.isBudgetExceeded();
+    let useOllamaFallback = false;
+
+    if (isBudgetLimit) {
+      if (await isOllamaRunning()) {
+        useOllamaFallback = true;
+        console.log(picocolors.yellow(`[Budget] Limit reached. Falling back to local offline Ollama execution.`));
+      } else {
+        console.log(picocolors.red(`[Proxy] Blocked request: Session budget limit of $${costTracker.getBudgetLimit().toFixed(4)} reached.`));
+        res.status(402).json({
+          error: {
+            message: `TokenFlow Session Budget Limit Exceeded ($${costTracker.getBudgetLimit().toFixed(4)}).`,
+            type: 'budget_exceeded',
+          }
+        });
+        return;
+      }
     }
 
     const clientApiKey = req.headers['x-api-key'] as string;
     const apiKey = clientApiKey ? clientApiKey.trim() : process.env.ANTHROPIC_API_KEY;
 
-    if (!apiKey) {
+    if (!apiKey && !useOllamaFallback) {
       return res.status(401).json({ error: { message: 'Anthropic API key missing in x-api-key header or local env.' } });
     }
 
@@ -197,7 +230,7 @@ export function startProxyServer(config: ProxyServerConfig) {
     // Apply Anthropic Prompt Caching Enforcer
     injectAnthropicCache(requestBody);
 
-    const provider = new AnthropicProvider(apiKey);
+    const provider = new AnthropicProvider(apiKey || '');
     const tokensEstimate = provider.estimateTokens(requestBody);
     const jobId = `job_anthropic_${Math.random().toString(36).substring(7)}`;
 
@@ -211,10 +244,26 @@ export function startProxyServer(config: ProxyServerConfig) {
     });
 
     try {
-      const providerResponse = await scheduler.submit(jobId, async () => {
-        console.log(picocolors.green(`[Scheduler] Dispatching Job ${jobId}`));
-        return provider.execute(requestBody, abortController.signal);
-      }, { priority, tokensEstimate });
+      let providerResponse;
+      if (useOllamaFallback) {
+        const ollama = new OllamaProvider();
+        providerResponse = await ollama.execute(requestBody, 'anthropic', abortController.signal);
+      } else {
+        try {
+          providerResponse = await scheduler.submit(jobId, async () => {
+            console.log(picocolors.green(`[Scheduler] Dispatching Job ${jobId}`));
+            return provider.execute(requestBody, abortController.signal);
+          }, { priority, tokensEstimate });
+        } catch (err: any) {
+          if (await isOllamaRunning()) {
+            console.log(picocolors.yellow(`[Network] Connection failed. Falling back to local offline Ollama execution.`));
+            const ollama = new OllamaProvider();
+            providerResponse = await ollama.execute(requestBody, 'anthropic', abortController.signal);
+          } else {
+            throw err;
+          }
+        }
+      }
 
       res.status(providerResponse.status);
       for (const [key, value] of providerResponse.headers.entries()) {
