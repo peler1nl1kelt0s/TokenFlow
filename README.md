@@ -108,7 +108,14 @@ Scan any directory locally to generate high-speed complexity and file import tel
 tf scan ./src
 ```
 
-### 5. Accessing the Dashboard
+### 5. Installing Local Workspace Skills
+To explicitly add the TokenFlow custom skill block to a specific project directory (e.g., to share with your team in Git):
+
+```bash
+tf add-skill --dir .agents/skills
+```
+
+### 6. Accessing the Dashboard
 Open your browser and navigate to the local dashboard to monitor real-time enqueues, uptime, and multiplier scaling values:
 ```text
 http://localhost:8080/dashboard

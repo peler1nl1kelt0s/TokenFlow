@@ -3,6 +3,9 @@ import dotenv from 'dotenv';
 import { startProxyServer } from '../proxy/server.js';
 import { scanRepository } from '../estimators/repoScanner.js';
 import { runExecCommand } from './exec.js';
+import { SKILL_MD_CONTENT } from '../scripts/skillTemplate.js';
+import fs from 'fs/promises';
+import path from 'path';
 import picocolors from 'picocolors';
 
 // Load local environment variables from .env
@@ -82,6 +85,23 @@ program
     const tpm = parseInt(options.tpm, 10);
     const rpm = parseInt(options.rpm, 10);
     runExecCommand(command, { port, tpm, rpm });
+  });
+
+program
+  .command('add-skill')
+  .description('Install the TokenFlow custom skill locally in the current repository')
+  .option('-d, --dir <path>', 'Custom directory to write the skill to', '.agents/skills')
+  .action(async (options) => {
+    const skillDir = path.join(process.cwd(), options.dir, 'tokenflow');
+    console.log(picocolors.cyan(`[Skill] Installing TokenFlow skill locally in ${skillDir}...`));
+    try {
+      await fs.mkdir(skillDir, { recursive: true });
+      await fs.writeFile(path.join(skillDir, 'SKILL.md'), SKILL_MD_CONTENT);
+      console.log(picocolors.green(`\n🚀 [Success] TokenFlow skill installed successfully at ${path.join(skillDir, 'SKILL.md')}\n`));
+    } catch (err: any) {
+      console.error(picocolors.red(`[Error] Failed to install skill: ${err.message}`));
+      process.exit(1);
+    }
   });
 
 program.parse(process.argv);
