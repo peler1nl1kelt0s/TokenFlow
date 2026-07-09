@@ -5,6 +5,8 @@ import { TokenFlowScheduler } from '../core/scheduler.js';
 import { ProviderRequest } from '../providers/types.js';
 import { ContextManager } from '../core/contextManager.js';
 import { MultiModelRouter } from './router.js';
+import { TokenFlowCostTracker } from '../core/costTracker.js';
+import { scanRepository } from '../estimators/repoScanner.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs/promises';
@@ -17,16 +19,18 @@ export interface ProxyServerConfig {
   port: number;
   tpm: number;
   rpm: number;
+  budgetLimit?: number;
 }
 
 export function startProxyServer(config: ProxyServerConfig) {
   const app = express();
   app.use(express.json());
 
-  // Instantiate global scheduler and routers
+  // Instantiate global scheduler, routers, and cost tracker
   const scheduler = new TokenFlowScheduler({ tpm: config.tpm, rpm: config.rpm });
   const openAiRouter = new MultiModelRouter('gpt-4o', 'gpt-4o-mini');
   const anthropicRouter = new MultiModelRouter('claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307');
+  const costTracker = new TokenFlowCostTracker(config.budgetLimit || 0);
 
   const sessionStats = {
     startTime: Date.now(),
@@ -39,6 +43,18 @@ export function startProxyServer(config: ProxyServerConfig) {
 
   // Endpoint: OpenAI Format Chat Completions
   app.post('/v1/chat/completions', async (req, res) => {
+    // Budget Guard Check
+    if (costTracker.isBudgetExceeded()) {
+      console.log(picocolors.red(`[Proxy] Blocked request: Session budget limit of $${costTracker.getBudgetLimit().toFixed(4)} reached.`));
+      res.status(402).json({
+        error: {
+          message: `TokenFlow Session Budget Limit Exceeded ($${costTracker.getBudgetLimit().toFixed(4)}).`,
+          type: 'budget_exceeded',
+        }
+      });
+      return;
+    }
+
     const authHeader = req.headers.authorization;
     const apiKey = authHeader ? authHeader.replace('Bearer ', '').trim() : process.env.OPENAI_API_KEY;
 
@@ -118,6 +134,9 @@ export function startProxyServer(config: ProxyServerConfig) {
       // Record feedback
       scheduler.recordActualUsage(tokensEstimate, actualTokens);
 
+      // Record USD cost transaction
+      costTracker.recordTransaction(requestBody.model || 'default', actualInputTokens, actualOutputTokens);
+
       // Update session statistics
       sessionStats.totalRequests++;
       sessionStats.totalActualTokens += actualTokens;
@@ -136,6 +155,18 @@ export function startProxyServer(config: ProxyServerConfig) {
 
   // Endpoint: Anthropic Format Messages
   app.post('/v1/messages', async (req, res) => {
+    // Budget Guard Check
+    if (costTracker.isBudgetExceeded()) {
+      console.log(picocolors.red(`[Proxy] Blocked request: Session budget limit of $${costTracker.getBudgetLimit().toFixed(4)} reached.`));
+      res.status(402).json({
+        error: {
+          message: `TokenFlow Session Budget Limit Exceeded ($${costTracker.getBudgetLimit().toFixed(4)}).`,
+          type: 'budget_exceeded',
+        }
+      });
+      return;
+    }
+
     const clientApiKey = req.headers['x-api-key'] as string;
     const apiKey = clientApiKey ? clientApiKey.trim() : process.env.ANTHROPIC_API_KEY;
 
@@ -212,6 +243,9 @@ export function startProxyServer(config: ProxyServerConfig) {
       // Record feedback
       scheduler.recordActualUsage(tokensEstimate, actualTokens);
 
+      // Record USD cost transaction
+      costTracker.recordTransaction(requestBody.model || 'default', actualInputTokens, actualOutputTokens);
+
       // Update session statistics
       sessionStats.totalRequests++;
       sessionStats.totalActualTokens += actualTokens;
@@ -238,6 +272,9 @@ export function startProxyServer(config: ProxyServerConfig) {
       tokensSaved: Math.max(0, sessionStats.totalEstimatedTokens - sessionStats.totalActualTokens),
       scaleMultiplier: scheduler.getScaleMultiplier(),
       limits: scheduler.getUsage(),
+      cost: costTracker.getCumulativeCost(),
+      budget: costTracker.getBudgetLimit(),
+      isBudgetExceeded: costTracker.isBudgetExceeded(),
     });
   });
 
@@ -259,18 +296,97 @@ export function startProxyServer(config: ProxyServerConfig) {
     }
   });
 
-  const server = app.listen(config.port, () => {
-    console.log(picocolors.green(`\n🚀 TokenFlow Proxy Server running on http://localhost:${config.port}\n`));
+  // MCP Tools Listing Endpoint
+  app.get('/mcp/v1/tools', (req, res) => {
+    res.json({
+      tools: [
+        {
+          name: 'get_tokenflow_stats',
+          description: 'Get real-time token scheduling rates, queue usage, budget constraints, and PID multiplier scales from the local TokenFlow daemon.',
+          inputSchema: { type: 'object', properties: {} }
+        },
+        {
+          name: 'scan_repository_complexity',
+          description: 'Recursively scans a directory\'s LOC, file counts, imports, and complexity metrics using a fast local parser.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              directory: { type: 'string', description: 'Local directory path to scan, defaults to "./"' }
+            }
+          }
+        }
+      ]
+    });
   });
 
-  return {
-    server,
-    getStats: () => ({
-      startTime: sessionStats.startTime,
-      totalRequests: sessionStats.totalRequests,
-      totalActualTokens: sessionStats.totalActualTokens,
-      totalEstimatedTokens: sessionStats.totalEstimatedTokens,
-      multiplier: scheduler.getScaleMultiplier(),
-    }),
-  };
+  // MCP Tool Calling Execution Endpoint
+  app.post('/mcp/v1/call', async (req, res) => {
+    const { name, arguments: args } = req.body;
+    try {
+      if (name === 'get_tokenflow_stats') {
+        res.json({
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                uptimeSeconds: Math.round((Date.now() - sessionStats.startTime) / 1000),
+                totalRequests: sessionStats.totalRequests,
+                totalActualTokens: sessionStats.totalActualTokens,
+                cost: costTracker.getCumulativeCost(),
+                budget: costTracker.getBudgetLimit(),
+                scaleMultiplier: scheduler.getScaleMultiplier(),
+                queueLength: scheduler.getUsage().requests
+              }, null, 2)
+            }
+          ]
+        });
+      } else if (name === 'scan_repository_complexity') {
+        const dir = args?.directory || './';
+        const summary = await scanRepository(dir);
+        res.json({
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(summary, null, 2)
+            }
+          ]
+        });
+      } else {
+        res.status(404).json({ error: `Tool ${name} not found` });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  return new Promise<{ server: any; getStats: (() => any) | null; isDaemonShared: boolean }>((resolve, reject) => {
+    const server = app.listen(config.port, () => {
+      console.log(picocolors.green(`\n🚀 TokenFlow Proxy Server running on http://localhost:${config.port}\n`));
+      resolve({
+        server,
+        isDaemonShared: false,
+        getStats: () => ({
+          startTime: sessionStats.startTime,
+          totalRequests: sessionStats.totalRequests,
+          totalActualTokens: sessionStats.totalActualTokens,
+          totalEstimatedTokens: sessionStats.totalEstimatedTokens,
+          multiplier: scheduler.getScaleMultiplier(),
+          cost: costTracker.getCumulativeCost(),
+        }),
+      });
+    });
+
+    server.on('error', (err: any) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(picocolors.yellow(`[TokenFlow] Port ${config.port} is already in use. Reusing existing TokenFlow daemon instance on this port.`));
+        resolve({
+          server: null,
+          isDaemonShared: true,
+          getStats: null,
+        });
+      } else {
+        reject(err);
+      }
+    });
+  });
 }

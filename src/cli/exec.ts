@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { startProxyServer } from '../proxy/server.js';
 import picocolors from 'picocolors';
 
-export function runExecCommand(commandArgs: string[], options: { port: number; tpm: number; rpm: number }) {
+export async function runExecCommand(commandArgs: string[], options: { port: number; tpm: number; rpm: number; budget: number }) {
   if (commandArgs.length === 0) {
     console.error(picocolors.red('[Error] No command specified for execution wrapper. Usage: tf exec <command> [args...]'));
     process.exit(1);
@@ -11,19 +11,23 @@ export function runExecCommand(commandArgs: string[], options: { port: number; t
   const port = options.port;
   const tpm = options.tpm;
   const rpm = options.rpm;
+  const budget = options.budget;
 
   console.log(picocolors.bold(picocolors.green('\n=== TokenFlow Interceptor Wrapper ===')));
-  console.log(picocolors.cyan(`[Wrapper] Starting local scheduler proxy on port ${port}...`));
+  console.log(picocolors.cyan(`[Wrapper] Initializing local scheduler on port ${port}...`));
 
-  // Boot the proxy server in the background
-  let serverInstance: any;
+  // Boot the proxy server in the background (or connect to singleton daemon if running)
+  let serverInstance: any = null;
   let getStats: (() => any) | null = null;
+  let isDaemonShared = false;
+
   try {
-    const res = startProxyServer({ port, tpm, rpm });
+    const res = await startProxyServer({ port, tpm, rpm, budgetLimit: budget });
     serverInstance = res.server;
     getStats = res.getStats;
+    isDaemonShared = res.isDaemonShared;
   } catch (err: any) {
-    console.error(picocolors.red(`[Error] Failed to start background proxy: ${err.message}`));
+    console.error(picocolors.red(`[Error] Failed to initialize proxy server: ${err.message}`));
     process.exit(1);
   }
 
@@ -34,13 +38,19 @@ export function runExecCommand(commandArgs: string[], options: { port: number; t
     ANTHROPIC_API_URL: `http://localhost:${port}`,
     OPENAI_BASE_URL: `http://localhost:${port}/v1`,
     OPENAI_API_BASE: `http://localhost:${port}/v1`,
-    // For other agents that might use deepseek, openrouter etc.
     DEEPSEEK_BASE_URL: `http://localhost:${port}/v1`,
     OPENROUTER_BASE_URL: `http://localhost:${port}/v1`,
   };
 
   console.log(picocolors.cyan(`[Wrapper] Spawning child agent process: ${commandArgs.join(' ')}`));
-  console.log(picocolors.gray(`[Wrapper] Injected URL overrides redirecting LLM traffic to TokenFlow queue.\n`));
+  if (isDaemonShared) {
+    console.log(picocolors.yellow(`[Wrapper] Connected to existing shared TokenFlow daemon instance on port ${port}.`));
+  } else {
+    console.log(picocolors.green(`[Wrapper] Active TokenFlow server daemon spawned on port ${port}.`));
+  }
+  if (budget > 0) {
+    console.log(picocolors.magenta(`[Wrapper] Active budget limit enforced: $${budget.toFixed(2)}`));
+  }
 
   // Spawn the child command, preserving stdin/stdout streams
   const child = spawn(commandArgs[0], commandArgs.slice(1), {
@@ -50,10 +60,31 @@ export function runExecCommand(commandArgs: string[], options: { port: number; t
   });
 
   // Handle process termination signals gracefully
-  const cleanExit = (code: number) => {
+  const cleanExit = async (code: number) => {
     try {
-      if (getStats) {
-        const stats = getStats();
+      let stats: any = null;
+
+      if (isDaemonShared) {
+        // Fetch cumulative daemon stats from the active shared endpoint
+        try {
+          const apiRes = await fetch(`http://localhost:${port}/api/status`);
+          if (apiRes.ok) {
+            const data = await apiRes.json();
+            stats = {
+              startTime: Date.now() - (data.uptimeSeconds * 1000),
+              totalRequests: data.totalRequests,
+              totalActualTokens: data.totalActualTokens,
+              totalEstimatedTokens: data.totalEstimatedTokens,
+              multiplier: data.scaleMultiplier,
+              cost: data.cost,
+            };
+          }
+        } catch {}
+      } else if (getStats) {
+        stats = getStats();
+      }
+
+      if (stats) {
         const uptime = Math.round((Date.now() - stats.startTime) / 1000);
         const saved = Math.max(0, stats.totalEstimatedTokens - stats.totalActualTokens);
         
@@ -65,11 +96,17 @@ export function runExecCommand(commandArgs: string[], options: { port: number; t
         console.log(`Actual Tokens:      ${picocolors.cyan(stats.totalActualTokens.toLocaleString())}`);
         console.log(`Estimated Tokens:   ${picocolors.cyan(stats.totalEstimatedTokens.toLocaleString())}`);
         console.log(`Tokens Saved:       ${picocolors.bold(picocolors.green(saved.toLocaleString()))}`);
+        console.log(`Total Session Cost: ${picocolors.bold(picocolors.magenta(`$${(stats.cost || 0).toFixed(4)}`))}`);
         console.log(`Adaptive Scale Mult: ${picocolors.bold(picocolors.yellow(stats.multiplier.toFixed(2)))}`);
         console.log(picocolors.bold(picocolors.green('=========================================\n')));
       }
-      serverInstance.close();
-      console.log(picocolors.cyan(`[Wrapper] Background proxy shut down. Exiting with code ${code}.`));
+
+      if (serverInstance && !isDaemonShared) {
+        serverInstance.close();
+        console.log(picocolors.cyan(`[Wrapper] Background proxy shut down. Exiting with code ${code}.`));
+      } else {
+        console.log(picocolors.cyan(`[Wrapper] Disconnected from shared daemon. Exiting with code ${code}.`));
+      }
     } catch {}
     process.exit(code);
   };

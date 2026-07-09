@@ -25,10 +25,12 @@ program
   .option('-p, --port <number>', 'Port to run the proxy server on', '8080')
   .option('--tpm <number>', 'Token Per Minute Limit', '40000')
   .option('--rpm <number>', 'Requests Per Minute Limit', '3')
-  .action((options) => {
+  .option('--budget <number>', 'Session spending budget limit in USD (e.g. 1.50)', '0')
+  .action(async (options) => {
     const port = parseInt(options.port, 10);
     const tpm = parseInt(options.tpm, 10);
     const rpm = parseInt(options.rpm, 10);
+    const budget = parseFloat(options.budget);
 
     console.log(picocolors.bold(picocolors.green('=== TokenFlow Scheduler Server ===')));
     
@@ -41,7 +43,7 @@ program
     }
 
     try {
-      startProxyServer({ port, tpm, rpm });
+      await startProxyServer({ port, tpm, rpm, budgetLimit: budget });
     } catch (err: any) {
       console.error(picocolors.red(`[Error] Failed to start server: ${err.message}`));
       process.exit(1);
@@ -80,12 +82,14 @@ program
   .option('-p, --port <number>', 'Port to run the proxy server on', '8080')
   .option('--tpm <number>', 'Token Per Minute Limit', '40000')
   .option('--rpm <number>', 'Requests Per Minute Limit', '3')
+  .option('--budget <number>', 'Session spending budget limit in USD (e.g. 1.50)', '0')
   .argument('<command...>', 'The agent command to execute')
-  .action((command, options) => {
+  .action(async (command, options) => {
     const port = parseInt(options.port, 10);
     const tpm = parseInt(options.tpm, 10);
     const rpm = parseInt(options.rpm, 10);
-    runExecCommand(command, { port, tpm, rpm });
+    const budget = parseFloat(options.budget);
+    await runExecCommand(command, { port, tpm, rpm, budget });
   });
 
 program

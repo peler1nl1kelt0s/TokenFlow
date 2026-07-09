@@ -20,14 +20,16 @@ vi.mock('child_process', () => {
 });
 
 // Mock proxy server boot
-vi.spyOn(serverModule, 'startProxyServer').mockReturnValue({
+vi.spyOn(serverModule, 'startProxyServer').mockResolvedValue({
   server: { close: vi.fn() },
+  isDaemonShared: false,
   getStats: vi.fn().mockReturnValue({
     startTime: Date.now(),
     totalRequests: 1,
     totalActualTokens: 50,
     totalEstimatedTokens: 100,
     multiplier: 1.0,
+    cost: 0.12,
   }),
 } as any);
 
@@ -45,10 +47,10 @@ describe('CLI Execution Wrapper', () => {
   });
 
   it('should start proxy server and spawn child process with env overrides', async () => {
-    runExecCommand(['mock-agent', '--flag'], { port: 9099, tpm: 1000, rpm: 10 });
+    await runExecCommand(['mock-agent', '--flag'], { port: 9099, tpm: 1000, rpm: 10, budget: 0 });
 
     // Verify proxy server was started on port 9099
-    expect(serverModule.startProxyServer).toHaveBeenCalledWith({ port: 9099, tpm: 1000, rpm: 10 });
+    expect(serverModule.startProxyServer).toHaveBeenCalledWith({ port: 9099, tpm: 1000, rpm: 10, budgetLimit: 0 });
 
     // Verify spawn was called with correct command and args
     expect(spawn).toHaveBeenCalled();
