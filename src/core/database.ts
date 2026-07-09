@@ -13,6 +13,7 @@ export interface TokenFlowConfig {
   models: Record<string, ModelConfig>;
   activeProvider: 'anthropic' | 'openai' | 'hybrid';
   budgetLimit: number;
+  authorizedDeveloperKeys?: Record<string, string>; // maps API keys to developer names (e.g. "tf-dev-token-1" -> "peler1n")
 }
 
 export interface SessionRecord {
@@ -24,9 +25,14 @@ export interface SessionRecord {
   estimatedTokens: number;
   savedTokens: number;
   cost: number;
+  developerId?: string;
 }
 
 const DEFAULT_CONFIG: TokenFlowConfig = {
+  authorizedDeveloperKeys: {
+    'tf-dev-token-peler1n': 'peler1n',
+    'tf-dev-token-esdskr': 'esdskr',
+  },
   models: {
     // Anthropic 2026 Tiers
     'claude-5-fable': { premium: 'claude-5-fable', standard: 'claude-4-5-haiku', inputPerMillion: 10.0, outputPerMillion: 50.0 },
@@ -94,6 +100,10 @@ export class TokenFlowDatabase {
           changed = true;
         }
       }
+      if (!loaded.authorizedDeveloperKeys) {
+        loaded.authorizedDeveloperKeys = DEFAULT_CONFIG.authorizedDeveloperKeys;
+        changed = true;
+      }
       if (changed) {
         await this.saveConfig(loaded);
       }
@@ -134,6 +144,16 @@ export class TokenFlowDatabase {
       history.shift();
     }
     await this.saveHistory(history);
+  }
+
+  public async getDeveloperCosts(): Promise<Record<string, number>> {
+    const history = await this.getHistory();
+    const developerCosts: Record<string, number> = {};
+    for (const record of history) {
+      const dev = record.developerId || 'local_developer';
+      developerCosts[dev] = (developerCosts[dev] || 0) + record.cost;
+    }
+    return developerCosts;
   }
 
   public async getPricingForModel(modelName: string): Promise<{ inputPerMillion: number; outputPerMillion: number }> {

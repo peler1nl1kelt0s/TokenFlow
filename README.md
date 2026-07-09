@@ -134,6 +134,19 @@ It comes preconfigured with the latest active API models:
 
 You can easily change these mappings, register your own custom fine-tuned models, or set a USD budget limit directly in the settings tab of the Web Dashboard.
 
+### 8. Dry-Run Simulation Mode
+Want to test your autonomous agent loops completely free of charge? Use the `--dry-run` flag:
+```bash
+tf exec --dry-run "npx @anthropic-ai/claude-code"
+```
+TokenFlow will intercept all API calls locally, streaming realistic mock completion chunks with natural pacing, letting you validate agent logic without spending money.
+
+### 9. Context-Aware Prompt Summarization
+When token limits are approaching, TokenFlow's context compression engine dynamically summarizes historical turns. If a local Ollama service (`llama3`) is running, it executes a fast local summarization of early messages to condense history into a single cohesive system memory instruction, ensuring agent context memory remains intact.
+
+### 10. Compact Dashboard HUD
+Click **Compact HUD** in the Web Dashboard to toggle the browser dashboard into a mini floating window format. Shrink it, pin it to a screen corner, and monitor budgets and PID scale multipliers side-by-side with your code editor.
+
 ---
 
 ## CLI Telemetry Report Output

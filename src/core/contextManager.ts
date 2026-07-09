@@ -1,4 +1,5 @@
 import { Message } from '../providers/types.js';
+import { isOllamaRunning } from '../providers/ollama.js';
 
 export interface ContextManagerConfig {
   maxContextTokens: number;
@@ -38,12 +39,43 @@ export class ContextManager {
     return this.getPressure(messages) > this.pressureThreshold;
   }
 
+  private async generateLocalSummary(messagesToCompress: Message[]): Promise<string | null> {
+    try {
+      const running = await isOllamaRunning();
+      if (!running) return null;
+
+      const chatHistoryText = messagesToCompress.map(m => {
+        const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+        return `${m.role.toUpperCase()}: ${text}`;
+      }).join('\n\n');
+
+      const prompt = `Summarize the following coding agent conversation turns into a single short paragraph recapping key topics discussed, goals achieved, and code changes: \n\n${chatHistoryText}\n\nSummary paragraph:`;
+
+      const res = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llama3',
+          prompt,
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(3000), // strict timeout to keep proxy fast
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return data.response?.trim() || null;
+      }
+    } catch {}
+    return null;
+  }
+
   /**
    * Deflates the message context history to reduce token pressure.
    * Keeps the system prompt (if any) and the last N turns intact.
    * Summarizes or drops intermediate turns to fit within safe limits.
    */
-  public deflate(messages: Message[], keepLastTurns = 4): Message[] {
+  public async deflate(messages: Message[], keepLastTurns = 4): Promise<Message[]> {
     if (!this.shouldCompress(messages)) {
       return messages;
     }
@@ -62,17 +94,23 @@ export class ContextManager {
     const historyToCompress = userAndAssistantMessages.slice(0, splitIndex);
     const recentMessages = userAndAssistantMessages.slice(splitIndex);
 
-    // Formulate a single summarized replacement message for the oldest history
-    let summaryText = '[SYSTEM: Early conversation history deflated to save context window space. Summary of past turns: ';
-    
-    const summaries: string[] = [];
-    for (const msg of historyToCompress) {
-      const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-      const snippet = text.substring(0, 60) + (text.length > 60 ? '...' : '');
-      summaries.push(`${msg.role.toUpperCase()}: ${snippet}`);
+    // Try generating local semantic summary using Ollama
+    let summaryText = await this.generateLocalSummary(historyToCompress);
+
+    if (!summaryText) {
+      // Fallback: Formulate a single summarized replacement message for the oldest history
+      let fallbackText = '[SYSTEM: Early conversation history deflated to save context window space. Summary of past turns: ';
+      const summaries: string[] = [];
+      for (const msg of historyToCompress) {
+        const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        const snippet = text.substring(0, 60) + (text.length > 60 ? '...' : '');
+        summaries.push(`${msg.role.toUpperCase()}: ${snippet}`);
+      }
+      fallbackText += summaries.join(' -> ') + ']';
+      summaryText = fallbackText;
+    } else {
+      summaryText = `[SYSTEM: Early conversation history deflated. Context summary of past turns: ${summaryText}]`;
     }
-    
-    summaryText += summaries.join(' -> ') + ']';
 
     const deflatedHistoryMessage: Message = {
       role: 'system',

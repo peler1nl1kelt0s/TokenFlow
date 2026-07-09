@@ -110,6 +110,7 @@
 
     .status-badges {
       display: flex;
+      align-items: center;
       gap: 0.75rem;
     }
 
@@ -463,6 +464,70 @@
     .footer-link:hover {
       color: var(--secondary);
     }
+
+    /* COMPACT OVERLAY WIDGET MODE STYLES */
+    body.compact-mode header,
+    body.compact-mode footer,
+    body.compact-mode #tab-settings,
+    body.compact-mode .limits-container,
+    body.compact-mode .col-12,
+    body.compact-mode .mini-stat,
+    body.compact-mode .metric-desc,
+    body.compact-mode .card-title-icon,
+    body.compact-mode #tokens-saved-desc {
+      display: none !important;
+    }
+
+    body.compact-mode {
+      background-image: none;
+      background-color: #05070a;
+      overflow: hidden;
+      padding: 0.4rem;
+      min-height: auto;
+    }
+
+    body.compact-mode main {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    body.compact-mode .card {
+      grid-column: span 12 !important;
+      padding: 0.6rem;
+      border-radius: 12px;
+      margin: 0;
+      box-shadow: none;
+      background: rgba(13, 17, 23, 0.9);
+    }
+
+    body.compact-mode .metric-value {
+      font-size: 1.5rem;
+      margin: 0.1rem 0;
+    }
+
+    body.compact-mode .chart-container {
+      height: 45px;
+      margin-top: 0.2rem;
+    }
+
+    body.compact-mode .card-title {
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    body.compact-mode .grid-2 {
+      margin-top: 0.25rem;
+      gap: 0.4rem;
+    }
+
+    #btn-compact-exit {
+      display: none;
+    }
+    body.compact-mode #btn-compact-exit {
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
@@ -476,6 +541,7 @@
       </div>
     </div>
     <div class="status-badges">
+      <button class="btn" onclick="toggleCompactMode()" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-right: 0.5rem;">Compact HUD</button>
       <div class="badge" id="ollama-badge">
         <span class="badge-dot" style="background-color: var(--text-muted);"></span>
         <span>Ollama: Checking...</span>
@@ -494,6 +560,7 @@
       <div class="card col-4">
         <div class="card-title">
           <span>Session Spending</span>
+          <button class="btn" id="btn-compact-exit" onclick="toggleCompactMode()" style="padding:0.2rem 0.5rem; font-size:0.7rem;">Standard Mode</button>
           <span class="card-title-icon">💵</span>
         </div>
         <div class="metric-value" id="session-cost">$0.0000</div>
@@ -537,7 +604,7 @@
           <span class="card-title-icon">🎯</span>
         </div>
         <div class="metric-value" id="tokens-saved" style="color: var(--success); background: none; -webkit-text-fill-color: initial;">0</div>
-        <div class="metric-desc">Tokens saved via local scan mapping and prompt caching.</div>
+        <div class="metric-desc" id="tokens-saved-desc">Tokens saved via local scan mapping and prompt caching.</div>
         <div class="grid-2">
           <div class="mini-stat">
             <div class="mini-stat-val" id="total-actual">0</div>
@@ -628,17 +695,40 @@
         </form>
       </div>
 
-      <!-- Card: Local Config Model Mapping Register -->
-      <div class="card col-12">
+      <!-- Card: Developer Billing Quotas (Enterprise Gateway) -->
+      <div class="card col-6">
+        <div class="card-title">
+          <span>Developer Billing & Spend Report</span>
+          <span class="card-title-icon">🔑</span>
+        </div>
+        <p class="metric-desc">Cost summaries allocated per developer authentication token.</p>
+        <div style="overflow-x: auto; margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Developer ID</th>
+                <th>Cumulative Cost</th>
+              </tr>
+            </thead>
+            <tbody id="billing-table-body">
+              <tr>
+                <td colspan="2" style="text-align: center; color: var(--text-muted);">No key transactions recorded.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Card: Dynamic Model Tier Mappings -->
+      <div class="card col-6">
         <div class="card-title">
           <span>Dynamic Model Tier Mappings</span>
           <span class="card-title-icon">🧠</span>
         </div>
         <p class="metric-desc" style="margin-bottom: 1.5rem;">
           Configure standard (cheap/Haiku) and premium (expensive/Sonnet) mappings per provider.
-          Regex heuristics will dynamically assign new models using keywords if not configured here.
         </p>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" id="models-mapping-list">
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;" id="models-mapping-list">
           <!-- Dynamically populated from API -->
         </div>
       </div>
@@ -656,6 +746,7 @@
               <tr>
                 <th>Session ID</th>
                 <th>Run Duration</th>
+                <th>Developer ID</th>
                 <th>Total Jobs</th>
                 <th>Actual Tokens</th>
                 <th>Saved Tokens</th>
@@ -664,7 +755,7 @@
             </thead>
             <tbody id="history-table-body">
               <tr>
-                <td colspan="6" style="text-align: center; color: var(--text-muted);">No historical runs saved yet.</td>
+                <td colspan="7" style="text-align: center; color: var(--text-muted);">No historical runs saved yet.</td>
               </tr>
             </tbody>
           </table>
@@ -674,7 +765,7 @@
   </main>
 
   <div class="footer">
-    <div>TokenFlow v0.5.0 • Local Daemon Node</div>
+    <div>TokenFlow v0.6.0 • Local Daemon Node</div>
     <div class="footer-right">
       <a href="https://github.com/peler1nl1kelt0s/TokenFlow" target="_blank" class="footer-link">Documentation</a>
       <a href="/api/status" target="_blank" class="footer-link">JSON Status API</a>
@@ -682,6 +773,13 @@
   </div>
 
   <script>
+    // Toggle compact widget view
+    function toggleCompactMode() {
+      document.body.classList.toggle('compact-mode');
+      resizeCanvas();
+      drawChart();
+    }
+
     // Tab switching logic
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -695,6 +793,7 @@
       if (tabId === 'tab-settings') {
         loadSettings();
         loadHistory();
+        loadBilling();
       }
     }
 
@@ -785,22 +884,25 @@
           const container = document.getElementById('models-mapping-list');
           container.innerHTML = '';
 
-          for (const key of Object.keys(config.models)) {
+          // Only render active/primary 2026 model mappings to avoid list clutter
+          const visibleKeys = ['claude-sonnet-5', 'claude-haiku-4-5', 'gpt-5.6-sol', 'gpt-5.6-luna'];
+          for (const key of visibleKeys) {
             const m = config.models[key];
+            if (!m) continue;
             const div = document.createElement('div');
             div.className = 'mini-stat';
-            div.style.gap = '0.5rem';
+            div.style.gap = '0.4rem';
             div.innerHTML = `
-              <div style="font-weight:700; font-size:0.95rem; color:var(--secondary);">${key}</div>
-              <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+              <div style="font-weight:700; font-size:0.9rem; color:var(--secondary);">${key}</div>
+              <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
                 <span style="color:var(--text-muted);">Standard Fallback:</span>
                 <span style="font-family:monospace;">${m.standard}</span>
               </div>
-              <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+              <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
                 <span style="color:var(--text-muted);">Premium Fallback:</span>
                 <span style="font-family:monospace;">${m.premium}</span>
               </div>
-              <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+              <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
                 <span style="color:var(--text-muted);">Rate per 1M (Input/Output):</span>
                 <span>$${m.inputPerMillion.toFixed(2)} / $${m.outputPerMillion.toFixed(2)}</span>
               </div>
@@ -863,15 +965,19 @@
       const statusNote = document.getElementById('queue-status-note');
 
       if (isPaused) {
-        btnPause.style.display = 'none';
-        btnResume.style.display = 'block';
-        statusNote.innerText = 'Queue Status: Paused';
-        statusNote.style.color = 'var(--danger)';
+        if (btnPause) btnPause.style.display = 'none';
+        if (btnResume) btnResume.style.display = 'block';
+        if (statusNote) {
+          statusNote.innerText = 'Queue Status: Paused';
+          statusNote.style.color = 'var(--danger)';
+        }
       } else {
-        btnPause.style.display = 'block';
-        btnResume.style.display = 'none';
-        statusNote.innerText = 'Queue Status: Running';
-        statusNote.style.color = 'var(--success)';
+        if (btnPause) btnPause.style.display = 'block';
+        if (btnResume) btnResume.style.display = 'none';
+        if (statusNote) {
+          statusNote.innerText = 'Queue Status: Running';
+          statusNote.style.color = 'var(--success)';
+        }
       }
     }
 
@@ -883,7 +989,7 @@
           const history = await res.json();
           const tbody = document.getElementById('history-table-body');
           if (history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No historical runs saved yet.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No historical runs saved yet.</td></tr>';
             return;
           }
           tbody.innerHTML = '';
@@ -893,6 +999,7 @@
             tr.innerHTML = `
               <td style="font-family:monospace; font-size:0.8rem; color:var(--secondary);">${record.id}</td>
               <td>${duration}s</td>
+              <td style="font-size:0.8rem; font-family:monospace;">${record.developerId || 'local_developer'}</td>
               <td>${record.totalRequests}</td>
               <td>${record.actualTokens.toLocaleString()}</td>
               <td style="color:var(--success); font-weight:600;">${record.savedTokens.toLocaleString()}</td>
@@ -900,6 +1007,30 @@
             `;
             tbody.appendChild(tr);
           });
+        }
+      } catch {}
+    }
+
+    // Load Developer Billing spend report
+    async function loadBilling() {
+      try {
+        const res = await fetch('/api/billing');
+        if (res.ok) {
+          const billing = await res.json();
+          const tbody = document.getElementById('billing-table-body');
+          if (Object.keys(billing).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: var(--text-muted);">No key transactions recorded.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = '';
+          for (const [dev, cost] of Object.entries(billing)) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td style="font-family:monospace; color:var(--secondary);">${dev}</td>
+              <td style="color:var(--accent); font-weight:600;">$${cost.toFixed(4)}</td>
+            `;
+            tbody.appendChild(tr);
+          }
         }
       } catch {}
     }

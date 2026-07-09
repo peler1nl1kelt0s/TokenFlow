@@ -17,7 +17,7 @@ describe('ContextManager', () => {
     expect(manager.shouldCompress(messages)).toBe(false);
   });
 
-  it('should deflate message history when pressure is high', () => {
+  it('should deflate message history when pressure is high', async () => {
     // Max context 10 tokens, threshold 0.80 -> Limit 8 tokens
     const manager = new ContextManager({ maxContextTokens: 10, pressureThreshold: 0.80 });
 
@@ -34,7 +34,7 @@ describe('ContextManager', () => {
     expect(manager.shouldCompress(messages)).toBe(true);
 
     // Deflate keeping last 2 turns
-    const deflated = manager.deflate(messages, 2);
+    const deflated = await manager.deflate(messages, 2);
 
     // Expect system message, replacement summary, and last 2 turns (4 messages total)
     expect(deflated.length).toBe(4);

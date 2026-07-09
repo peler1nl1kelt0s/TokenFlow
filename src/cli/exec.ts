@@ -2,8 +2,7 @@ import { spawn } from 'child_process';
 import { startProxyServer } from '../proxy/server.js';
 import { TokenFlowDatabase } from '../core/database.js';
 import picocolors from 'picocolors';
-
-export async function runExecCommand(commandArgs: string[], options: { port: number; tpm: number; rpm: number; budget: number }) {
+export async function runExecCommand(commandArgs: string[], options: { port: number; tpm: number; rpm: number; budget: number; dryRun?: boolean }) {
   if (commandArgs.length === 0) {
     console.error(picocolors.red('[Error] No command specified for execution wrapper. Usage: tf exec <command> [args...]'));
     process.exit(1);
@@ -13,6 +12,7 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
   const tpm = options.tpm;
   const rpm = options.rpm;
   const budget = options.budget;
+  const dryRun = options.dryRun;
 
   console.log(picocolors.bold(picocolors.green('\n=== TokenFlow Interceptor Wrapper ===')));
   console.log(picocolors.cyan(`[Wrapper] Initializing local scheduler on port ${port}...`));
@@ -23,7 +23,7 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
   let isDaemonShared = false;
 
   try {
-    const res = await startProxyServer({ port, tpm, rpm, budgetLimit: budget });
+    const res = await startProxyServer({ port, tpm, rpm, budgetLimit: budget, dryRun });
     serverInstance = res.server;
     getStats = res.getStats;
     isDaemonShared = res.isDaemonShared;
@@ -108,6 +108,7 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
               totalEstimatedTokens: data.totalEstimatedTokens,
               multiplier: data.scaleMultiplier,
               cost: data.cost,
+              developerId: data.developerId,
             };
           }
         } catch {}
@@ -127,6 +128,7 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
             estimatedTokens: stats.totalEstimatedTokens,
             savedTokens: Math.max(0, stats.totalEstimatedTokens - stats.totalActualTokens),
             cost: stats.cost || 0.0,
+            developerId: stats.developerId || process.env.TOKENFLOW_DEV_ID || 'local_developer',
           });
         } catch {}
 

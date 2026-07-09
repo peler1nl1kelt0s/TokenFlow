@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('tf')
   .description('TokenFlow AI Execution Scheduler CLI')
-  .version('0.1.0');
+  .version('0.6.0');
 
 program
   .command('start')
@@ -26,24 +26,29 @@ program
   .option('--tpm <number>', 'Token Per Minute Limit', '40000')
   .option('--rpm <number>', 'Requests Per Minute Limit', '3')
   .option('--budget <number>', 'Session spending budget limit in USD (e.g. 1.50)', '0')
+  .option('--dry-run', 'Run in simulation mode without calling cloud API models')
   .action(async (options) => {
     const port = parseInt(options.port, 10);
     const tpm = parseInt(options.tpm, 10);
     const rpm = parseInt(options.rpm, 10);
     const budget = parseFloat(options.budget);
+    const dryRun = !!options.dryRun;
 
     console.log(picocolors.bold(picocolors.green('=== TokenFlow Scheduler Server ===')));
+    if (dryRun) {
+      console.log(picocolors.bold(picocolors.yellow('⚠️  RUNNING IN DRY-RUN SIMULATION MODE (No API cost will be incurred)')));
+    }
     
     // Warn if API keys are missing in the local environment
-    if (!process.env.OPENAI_API_KEY) {
+    if (!dryRun && !process.env.OPENAI_API_KEY) {
       console.log(picocolors.yellow('[Warning] OPENAI_API_KEY is not defined in env variables. Client must supply it via Authorization header.'));
     }
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!dryRun && !process.env.ANTHROPIC_API_KEY) {
       console.log(picocolors.yellow('[Warning] ANTHROPIC_API_KEY is not defined in env variables. Client must supply it via x-api-key header.'));
     }
 
     try {
-      await startProxyServer({ port, tpm, rpm, budgetLimit: budget });
+      await startProxyServer({ port, tpm, rpm, budgetLimit: budget, dryRun });
     } catch (err: any) {
       console.error(picocolors.red(`[Error] Failed to start server: ${err.message}`));
       process.exit(1);
@@ -83,13 +88,15 @@ program
   .option('--tpm <number>', 'Token Per Minute Limit', '40000')
   .option('--rpm <number>', 'Requests Per Minute Limit', '3')
   .option('--budget <number>', 'Session spending budget limit in USD (e.g. 1.50)', '0')
+  .option('--dry-run', 'Run in simulation mode without calling cloud API models')
   .argument('<command...>', 'The agent command to execute')
   .action(async (command, options) => {
     const port = parseInt(options.port, 10);
     const tpm = parseInt(options.tpm, 10);
     const rpm = parseInt(options.rpm, 10);
     const budget = parseFloat(options.budget);
-    await runExecCommand(command, { port, tpm, rpm, budget });
+    const dryRun = !!options.dryRun;
+    await runExecCommand(command, { port, tpm, rpm, budget, dryRun });
   });
 
 program

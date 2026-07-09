@@ -23,16 +23,19 @@ export interface ProxyServerConfig {
   tpm: number;
   rpm: number;
   budgetLimit?: number;
+  dryRun?: boolean;
 }
 
 export function startProxyServer(config: ProxyServerConfig) {
   const app = express();
   app.use(express.json());
 
+  const dryRun = !!config.dryRun;
+
   // Instantiate global scheduler, routers, and cost tracker
   const scheduler = new TokenFlowScheduler({ tpm: config.tpm, rpm: config.rpm });
-  const openAiRouter = new MultiModelRouter('gpt-4o', 'gpt-4o-mini');
-  const anthropicRouter = new MultiModelRouter('claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307');
+  const openAiRouter = new MultiModelRouter('gpt-5.6-sol', 'gpt-5.6-luna');
+  const anthropicRouter = new MultiModelRouter('claude-sonnet-5', 'claude-haiku-4-5');
   const costTracker = new TokenFlowCostTracker(config.budgetLimit || 0);
 
   const sessionStats = {
@@ -40,6 +43,7 @@ export function startProxyServer(config: ProxyServerConfig) {
     totalRequests: 0,
     totalActualTokens: 0,
     totalEstimatedTokens: 0,
+    developerId: 'local_developer',
   };
 
   console.log(picocolors.cyan(`[TokenFlow] Initializing scheduler with limits: TPM=${config.tpm}, RPM=${config.rpm}`));
@@ -47,7 +51,16 @@ export function startProxyServer(config: ProxyServerConfig) {
   // Endpoint: OpenAI Format Chat Completions
   app.post('/v1/chat/completions', async (req, res) => {
     const sessionId = (req.query.session_id as string) || 'default_session';
-    
+
+    const db = new TokenFlowDatabase();
+    const dbConfig = await db.getConfig();
+    const devAuth = resolveDeveloperId(req, dbConfig);
+    if (!devAuth.authorized) {
+      console.log(picocolors.red(`[Auth] Blocked request: Unauthorized developer gateway key.`));
+      return res.status(401).json({ error: { message: 'TokenFlow API Gateway: Unauthorized developer key.' } });
+    }
+    sessionStats.developerId = devAuth.developerId;
+
     // Budget Guard Check with Ollama Fallback
     const isBudgetLimit = costTracker.isBudgetExceeded();
     let useOllamaFallback = false;
@@ -85,7 +98,7 @@ export function startProxyServer(config: ProxyServerConfig) {
     const contextManager = new ContextManager({ maxContextTokens });
     if (contextManager.shouldCompress(requestBody.messages)) {
       console.log(picocolors.yellow(`[Context] High context pressure detected (${(contextManager.getPressure(requestBody.messages) * 100).toFixed(0)}%). Deflating history...`));
-      requestBody.messages = contextManager.deflate(requestBody.messages);
+      requestBody.messages = await contextManager.deflate(requestBody.messages);
     }
 
     // Apply Multi-Model Routing Complexity Check
@@ -96,6 +109,11 @@ export function startProxyServer(config: ProxyServerConfig) {
     });
     requestBody.model = route.model;
     console.log(picocolors.cyan(`[Router] Routed request to model: ${route.model}`));
+
+    if (dryRun) {
+      await handleOpenAiDryRun(req, res, requestBody, scheduler, costTracker, sessionStats);
+      return;
+    }
 
     const provider = new OpenAIProvider(apiKey || '');
     const tokensEstimate = provider.estimateTokens(requestBody);
@@ -188,7 +206,16 @@ export function startProxyServer(config: ProxyServerConfig) {
   // Endpoint: Anthropic Format Messages
   app.post('/v1/messages', async (req, res) => {
     const sessionId = (req.query.session_id as string) || 'default_session';
-    
+
+    const db = new TokenFlowDatabase();
+    const dbConfig = await db.getConfig();
+    const devAuth = resolveDeveloperId(req, dbConfig);
+    if (!devAuth.authorized) {
+      console.log(picocolors.red(`[Auth] Blocked request: Unauthorized developer gateway key.`));
+      return res.status(401).json({ error: { message: 'TokenFlow API Gateway: Unauthorized developer key.' } });
+    }
+    sessionStats.developerId = devAuth.developerId;
+
     // Budget Guard Check with Ollama Fallback
     const isBudgetLimit = costTracker.isBudgetExceeded();
     let useOllamaFallback = false;
@@ -226,7 +253,7 @@ export function startProxyServer(config: ProxyServerConfig) {
     const contextManager = new ContextManager({ maxContextTokens });
     if (contextManager.shouldCompress(requestBody.messages)) {
       console.log(picocolors.yellow(`[Context] High context pressure detected (${(contextManager.getPressure(requestBody.messages) * 100).toFixed(0)}%). Deflating history...`));
-      requestBody.messages = contextManager.deflate(requestBody.messages);
+      requestBody.messages = await contextManager.deflate(requestBody.messages);
     }
 
     // Apply Multi-Model Routing
@@ -237,6 +264,11 @@ export function startProxyServer(config: ProxyServerConfig) {
     });
     requestBody.model = route.model;
     console.log(picocolors.cyan(`[Router] Routed request to model: ${route.model}`));
+
+    if (dryRun) {
+      await handleAnthropicDryRun(req, res, requestBody, scheduler, costTracker, sessionStats);
+      return;
+    }
 
     // Apply Anthropic Prompt Caching Enforcer
     injectAnthropicCache(requestBody);
@@ -340,7 +372,19 @@ export function startProxyServer(config: ProxyServerConfig) {
       budget: costTracker.getBudgetLimit(),
       isBudgetExceeded: costTracker.isBudgetExceeded(),
       isPaused: scheduler.getIsPaused(),
+      developerId: sessionStats.developerId,
     });
+  });
+
+  // GET Billing Endpoint
+  app.get('/api/billing', async (req, res) => {
+    try {
+      const db = new TokenFlowDatabase();
+      const billing = await db.getDeveloperCosts();
+      res.json(billing);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // GET Config Endpoint
@@ -497,6 +541,7 @@ export function startProxyServer(config: ProxyServerConfig) {
           totalEstimatedTokens: sessionStats.totalEstimatedTokens,
           multiplier: scheduler.getScaleMultiplier(),
           cost: costTracker.getCumulativeCost(),
+          developerId: sessionStats.developerId,
         }),
       });
     });
@@ -515,3 +560,187 @@ export function startProxyServer(config: ProxyServerConfig) {
     });
   });
 }
+
+async function handleOpenAiDryRun(
+  req: express.Request,
+  res: express.Response,
+  requestBody: any,
+  scheduler: any,
+  costTracker: any,
+  sessionStats: any
+) {
+  const model = requestBody.model || 'gpt-5.6-sol';
+  const isStream = !!requestBody.stream;
+  const mockText = "This is a simulated response in TokenFlow Dry-Run mode. Real LLM model weights were not queried, saving you API costs.";
+  
+  const promptChars = JSON.stringify(requestBody.messages).length;
+  const inputTokens = Math.ceil(promptChars / 4);
+  const outputTokens = Math.ceil(mockText.length / 4);
+  const totalTokens = inputTokens + outputTokens;
+
+  scheduler.recordActualUsage(inputTokens * 2, totalTokens);
+  await costTracker.recordTransaction(model, inputTokens, outputTokens);
+  
+  sessionStats.totalRequests++;
+  sessionStats.totalActualTokens += totalTokens;
+  sessionStats.totalEstimatedTokens += inputTokens * 2;
+
+  if (isStream) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
+    const words = mockText.split(' ');
+    const id = `chatcmpl-mock-${Math.random().toString(36).substring(7)}`;
+    
+    res.write(`data: ${JSON.stringify({
+      id, object: 'chat.completion.chunk', created: Math.round(Date.now() / 1000), model,
+      choices: [{ index: 0, delta: { role: 'assistant' }, finish_reason: null }]
+    })}\n\n`);
+
+    for (const word of words) {
+      await new Promise(resolve => setTimeout(resolve, 15));
+      res.write(`data: ${JSON.stringify({
+        id, object: 'chat.completion.chunk', created: Math.round(Date.now() / 1000), model,
+        choices: [{ index: 0, delta: { content: word + ' ' }, finish_reason: null }]
+      })}\n\n`);
+    }
+    
+    res.write(`data: ${JSON.stringify({
+      id, object: 'chat.completion.chunk', created: Math.round(Date.now() / 1000), model,
+      choices: [{ index: 0, delta: {}, finish_reason: 'stop' }]
+    })}\n\n`);
+    res.write('data: [DONE]\n\n');
+    res.end();
+  } else {
+    res.json({
+      id: `chatcmpl-mock-${Math.random().toString(36).substring(7)}`,
+      object: 'chat.completion',
+      created: Math.round(Date.now() / 1000),
+      model,
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content: mockText },
+        finish_reason: 'stop'
+      }],
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+        total_tokens: totalTokens
+      }
+    });
+  }
+}
+
+async function handleAnthropicDryRun(
+  req: express.Request,
+  res: express.Response,
+  requestBody: any,
+  scheduler: any,
+  costTracker: any,
+  sessionStats: any
+) {
+  const model = requestBody.model || 'claude-sonnet-5';
+  const isStream = !!requestBody.stream;
+  const mockText = "This is a simulated response in TokenFlow Dry-Run mode. Real LLM model weights were not queried, saving you API costs.";
+  
+  const promptChars = JSON.stringify(requestBody.messages).length;
+  const inputTokens = Math.ceil(promptChars / 4);
+  const outputTokens = Math.ceil(mockText.length / 4);
+  const totalTokens = inputTokens + outputTokens;
+
+  scheduler.recordActualUsage(inputTokens * 2, totalTokens);
+  await costTracker.recordTransaction(model, inputTokens, outputTokens);
+  
+  sessionStats.totalRequests++;
+  sessionStats.totalActualTokens += totalTokens;
+  sessionStats.totalEstimatedTokens += inputTokens * 2;
+
+  if (isStream) {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const id = `msg_mock_${Math.random().toString(36).substring(7)}`;
+
+    res.write(`event: message_start\ndata: ${JSON.stringify({
+      type: 'message_start',
+      message: { id, type: 'message', role: 'assistant', model, content: [], stop_reason: null, stop_sequence: null, usage: { input_tokens: inputTokens, output_tokens: 0 } }
+    })}\n\n`);
+
+    res.write(`event: content_block_start\ndata: ${JSON.stringify({
+      type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' }
+    })}\n\n`);
+
+    const words = mockText.split(' ');
+    for (const word of words) {
+      await new Promise(resolve => setTimeout(resolve, 15));
+      res.write(`event: content_block_delta\ndata: ${JSON.stringify({
+        type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: word + ' ' }
+      })}\n\n`);
+    }
+
+    res.write(`event: content_block_stop\ndata: ${JSON.stringify({
+      type: 'content_block_stop', index: 0
+    })}\n\n`);
+
+    res.write(`event: message_delta\ndata: ${JSON.stringify({
+      type: 'message_delta', delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: outputTokens }
+    })}\n\n`);
+
+    res.write(`event: message_stop\ndata: ${JSON.stringify({ type: 'message_stop' })}\n\n`);
+    res.end();
+  } else {
+    res.json({
+      id: `msg_mock_${Math.random().toString(36).substring(7)}`,
+      type: 'message',
+      role: 'assistant',
+      model,
+      content: [{ type: 'text', text: mockText }],
+      stop_reason: 'end_turn',
+      stop_sequence: null,
+      usage: {
+        input_tokens: inputTokens,
+        output_tokens: outputTokens
+      }
+    });
+  }
+}
+
+function resolveDeveloperId(req: express.Request, config: any): { developerId: string; authorized: boolean } {
+  const keys = config.authorizedDeveloperKeys;
+  
+  if (!keys || Object.keys(keys).length === 0) {
+    const devId = (req.headers['x-tokenflow-developer-id'] as string) || process.env.TOKENFLOW_DEV_ID || 'local_developer';
+    return { developerId: devId, authorized: true };
+  }
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (token.startsWith('tf-dev-')) {
+      const devId = keys[token];
+      if (devId) {
+        return { developerId: devId, authorized: true };
+      }
+      return { developerId: 'unauthorized', authorized: false };
+    }
+  }
+
+  const clientKey = (req.headers['x-api-key'] as string) || '';
+  if (clientKey.startsWith('tf-dev-')) {
+    const devId = keys[clientKey];
+    if (devId) {
+      return { developerId: devId, authorized: true };
+    }
+    return { developerId: 'unauthorized', authorized: false };
+  }
+
+  const localDevKey = process.env.TOKENFLOW_DEV_KEY;
+  if (localDevKey && keys[localDevKey]) {
+    return { developerId: keys[localDevKey], authorized: true };
+  }
+
+  return { developerId: 'unauthorized', authorized: false };
+}
+
