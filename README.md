@@ -76,7 +76,7 @@ TokenFlow automatically injects global skill definitions into **60+ popular agen
 Install TokenFlow globally using npm. The installer will automatically configure your shell profiles (`~/.zshrc`, `~/.bashrc`, `~/.profile`) and register skills with active local agents:
 
 ```bash
-npm install -g tokenflow
+npm install -g @peler1nl1kelt0s/tokenflow
 ```
 
 *Note: Restart your terminal or run `source ~/.zshrc` to activate the shell aliases immediately.*
