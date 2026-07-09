@@ -126,6 +126,14 @@ Open your browser and navigate to the local dashboard to monitor real-time enque
 http://localhost:8080/dashboard
 ```
 
+### 7. Config & Model Custom Mappings
+TokenFlow automatically creates a persistent configuration file at `~/.tokenflow/config.json` upon startup.
+It comes preconfigured with the latest active API models:
+*   **Anthropic Claude**: Maps complex reasoning to `claude-sonnet-5` and simple/selamlaşma tasks to `claude-haiku-4-5`.
+*   **OpenAI GPT & Reasoning**: Maps complex coding to `gpt-5.6-sol` / `o1` and simple tasks to `gpt-5.6-luna` / `o1-mini`.
+
+You can easily change these mappings, register your own custom fine-tuned models, or set a USD budget limit directly in the settings tab of the Web Dashboard.
+
 ---
 
 ## CLI Telemetry Report Output
