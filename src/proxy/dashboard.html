@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TokenFlow Scheduler Dashboard</title>
+  <style>
+    :root {
+      --bg-color: #0d0f12;
+      --card-bg: rgba(22, 28, 36, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-color: #f3f4f6;
+      --text-muted: #9ca3af;
+      --primary: #06b6d4; /* cyan */
+      --secondary: #8b5cf6; /* violet */
+      --success: #10b981; /* emerald */
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1200px;
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      background: rgba(6, 182, 212, 0.1);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+      color: var(--primary);
+      padding: 0.4rem 0.8rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1200px;
+      padding: 0 1rem 3rem 1rem;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: linear-gradient(to bottom, var(--primary), var(--secondary));
+    }
+
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin: 0.5rem 0;
+      background: linear-gradient(120deg, #ffffff 40%, var(--primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 9999px;
+      margin-top: 1rem;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--primary), var(--secondary));
+      transition: width 0.5s ease-out;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .stat-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.8rem;
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .stat-lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    .footer {
+      margin-top: auto;
+      padding: 2rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TokenFlow Scheduler</h1>
+    <div class="badge" id="status-badge">Active</div>
+  </header>
+
+  <main>
+    <!-- Card: Scale Multiplier -->
+    <div class="card">
+      <h2>Adaptive Multiplier</h2>
+      <div class="metric-value" id="scale-multiplier">1.00</div>
+      <div class="metric-label">PID correction scale multiplier for token predictions</div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="multiplier-bar"></div>
+      </div>
+    </div>
+
+    <!-- Card: Token Statistics -->
+    <div class="card">
+      <h2>Tokens Saved</h2>
+      <div class="metric-value" id="tokens-saved">0</div>
+      <div class="metric-label">Total difference between estimated and actual usage</div>
+      <div class="grid-2">
+        <div class="stat-item">
+          <div class="stat-val" id="total-actual">0</div>
+          <div class="stat-lbl">Actual Tokens</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="total-estimated">0</div>
+          <div class="stat-lbl">Estimated Tokens</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card: Rates & Constraints -->
+    <div class="card">
+      <h2>Rate Usage</h2>
+      <div class="metric-value" id="rate-requests">0</div>
+      <div class="metric-label">Total enqueued/processed request transactions</div>
+      <div class="grid-2">
+        <div class="stat-item">
+          <div class="stat-val" id="uptime">0s</div>
+          <div class="stat-lbl">Uptime</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-val" id="total-requests">0</div>
+          <div class="stat-lbl">Total Requests</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="footer">
+    TokenFlow v1.0 • Running on Local Node Engine
+  </div>
+
+  <script>
+    async function updateMetrics() {
+      try {
+        const res = await fetch('/api/status');
+        if (!res.ok) throw new Error('Offline');
+        const data = await res.json();
+
+        // Update Multiplier
+        const mult = data.scaleMultiplier;
+        document.getElementById('scale-multiplier').innerText = mult.toFixed(2);
+        // Normalize multiplier [0.2, 5.0] to percentage
+        const pct = Math.min(100, Math.max(0, ((mult - 0.2) / 4.8) * 100));
+        document.getElementById('multiplier-bar').style.width = `${pct}%`;
+
+        // Update Tokens
+        document.getElementById('tokens-saved').innerText = data.tokensSaved.toLocaleString();
+        document.getElementById('total-actual').innerText = data.totalActualTokens.toLocaleString();
+        document.getElementById('total-estimated').innerText = data.totalEstimatedTokens.toLocaleString();
+
+        // Update Uptime and requests
+        document.getElementById('rate-requests').innerText = data.totalRequests;
+        document.getElementById('total-requests').innerText = data.totalRequests;
+        document.getElementById('uptime').innerText = `${data.uptimeSeconds}s`;
+
+        document.getElementById('status-badge').innerText = 'Online';
+        document.getElementById('status-badge').style.color = '#10b981';
+      } catch (err) {
+        document.getElementById('status-badge').innerText = 'Offline';
+        document.getElementById('status-badge').style.color = '#ef4444';
+      }
+    }
+
+    // Poll every 1 second
+    setInterval(updateMetrics, 1000);
+    updateMetrics();
+  </script>
+</body>
+</html>

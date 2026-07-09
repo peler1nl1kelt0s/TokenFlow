@@ -21,7 +21,14 @@ vi.mock('child_process', () => {
 
 // Mock proxy server boot
 vi.spyOn(serverModule, 'startProxyServer').mockReturnValue({
-  close: vi.fn(),
+  server: { close: vi.fn() },
+  getStats: vi.fn().mockReturnValue({
+    startTime: Date.now(),
+    totalRequests: 1,
+    totalActualTokens: 50,
+    totalEstimatedTokens: 100,
+    multiplier: 1.0,
+  }),
 } as any);
 
 describe('CLI Execution Wrapper', () => {

@@ -5,7 +5,13 @@ import { TokenFlowScheduler } from '../core/scheduler.js';
 import { ProviderRequest } from '../providers/types.js';
 import { ContextManager } from '../core/contextManager.js';
 import { MultiModelRouter } from './router.js';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs/promises';
 import picocolors from 'picocolors';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export interface ProxyServerConfig {
   port: number;
@@ -21,6 +27,13 @@ export function startProxyServer(config: ProxyServerConfig) {
   const scheduler = new TokenFlowScheduler({ tpm: config.tpm, rpm: config.rpm });
   const openAiRouter = new MultiModelRouter('gpt-4o', 'gpt-4o-mini');
   const anthropicRouter = new MultiModelRouter('claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307');
+
+  const sessionStats = {
+    startTime: Date.now(),
+    totalRequests: 0,
+    totalActualTokens: 0,
+    totalEstimatedTokens: 0,
+  };
 
   console.log(picocolors.cyan(`[TokenFlow] Initializing scheduler with limits: TPM=${config.tpm}, RPM=${config.rpm}`));
 
@@ -104,6 +117,11 @@ export function startProxyServer(config: ProxyServerConfig) {
 
       // Record feedback
       scheduler.recordActualUsage(tokensEstimate, actualTokens);
+
+      // Update session statistics
+      sessionStats.totalRequests++;
+      sessionStats.totalActualTokens += actualTokens;
+      sessionStats.totalEstimatedTokens += tokensEstimate;
 
       console.log(picocolors.gray(`[Proxy] Completed Job ${jobId}. Actual tokens: ${actualTokens} (Scale Multiplier: ${scheduler.getScaleMultiplier().toFixed(2)})`));
     } catch (error: any) {
@@ -194,6 +212,11 @@ export function startProxyServer(config: ProxyServerConfig) {
       // Record feedback
       scheduler.recordActualUsage(tokensEstimate, actualTokens);
 
+      // Update session statistics
+      sessionStats.totalRequests++;
+      sessionStats.totalActualTokens += actualTokens;
+      sessionStats.totalEstimatedTokens += tokensEstimate;
+
       console.log(picocolors.gray(`[Proxy] Completed Job ${jobId}. Actual tokens: ${actualTokens} (Scale Multiplier: ${scheduler.getScaleMultiplier().toFixed(2)})`));
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -205,9 +228,49 @@ export function startProxyServer(config: ProxyServerConfig) {
     }
   });
 
+  // API status endpoint
+  app.get('/api/status', (req, res) => {
+    res.json({
+      uptimeSeconds: Math.round((Date.now() - sessionStats.startTime) / 1000),
+      totalRequests: sessionStats.totalRequests,
+      totalActualTokens: sessionStats.totalActualTokens,
+      totalEstimatedTokens: sessionStats.totalEstimatedTokens,
+      tokensSaved: Math.max(0, sessionStats.totalEstimatedTokens - sessionStats.totalActualTokens),
+      scaleMultiplier: scheduler.getScaleMultiplier(),
+      limits: scheduler.getUsage(),
+    });
+  });
+
+  // Serve static HTML Web Dashboard
+  app.get('/dashboard', async (req, res) => {
+    try {
+      let htmlPath = path.join(__dirname, 'dashboard.html');
+      try {
+        await fs.access(htmlPath);
+      } catch {
+        // Fallback for compiled running path vs development path
+        htmlPath = path.join(__dirname, '..', '..', 'src', 'proxy', 'dashboard.html');
+      }
+      const html = await fs.readFile(htmlPath, 'utf-8');
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (err: any) {
+      res.status(500).send(`Error loading dashboard: ${err.message}`);
+    }
+  });
+
   const server = app.listen(config.port, () => {
     console.log(picocolors.green(`\n🚀 TokenFlow Proxy Server running on http://localhost:${config.port}\n`));
   });
 
-  return server;
+  return {
+    server,
+    getStats: () => ({
+      startTime: sessionStats.startTime,
+      totalRequests: sessionStats.totalRequests,
+      totalActualTokens: sessionStats.totalActualTokens,
+      totalEstimatedTokens: sessionStats.totalEstimatedTokens,
+      multiplier: scheduler.getScaleMultiplier(),
+    }),
+  };
 }

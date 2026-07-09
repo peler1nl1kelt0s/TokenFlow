@@ -16,9 +16,12 @@ export function runExecCommand(commandArgs: string[], options: { port: number; t
   console.log(picocolors.cyan(`[Wrapper] Starting local scheduler proxy on port ${port}...`));
 
   // Boot the proxy server in the background
-  let server: any;
+  let serverInstance: any;
+  let getStats: (() => any) | null = null;
   try {
-    server = startProxyServer({ port, tpm, rpm });
+    const res = startProxyServer({ port, tpm, rpm });
+    serverInstance = res.server;
+    getStats = res.getStats;
   } catch (err: any) {
     console.error(picocolors.red(`[Error] Failed to start background proxy: ${err.message}`));
     process.exit(1);
@@ -49,8 +52,24 @@ export function runExecCommand(commandArgs: string[], options: { port: number; t
   // Handle process termination signals gracefully
   const cleanExit = (code: number) => {
     try {
-      server.close();
-      console.log(picocolors.cyan(`\n[Wrapper] Background proxy shut down. Exiting with code ${code}.`));
+      if (getStats) {
+        const stats = getStats();
+        const uptime = Math.round((Date.now() - stats.startTime) / 1000);
+        const saved = Math.max(0, stats.totalEstimatedTokens - stats.totalActualTokens);
+        
+        console.log(picocolors.bold(picocolors.green('\n=========================================')));
+        console.log(picocolors.bold(picocolors.green('      TokenFlow Session Telemetry       ')));
+        console.log(picocolors.bold(picocolors.green('=========================================')));
+        console.log(`Uptime:             ${picocolors.cyan(`${uptime}s`)}`);
+        console.log(`Total Requests:     ${picocolors.cyan(stats.totalRequests.toString())}`);
+        console.log(`Actual Tokens:      ${picocolors.cyan(stats.totalActualTokens.toLocaleString())}`);
+        console.log(`Estimated Tokens:   ${picocolors.cyan(stats.totalEstimatedTokens.toLocaleString())}`);
+        console.log(`Tokens Saved:       ${picocolors.bold(picocolors.green(saved.toLocaleString()))}`);
+        console.log(`Adaptive Scale Mult: ${picocolors.bold(picocolors.yellow(stats.multiplier.toFixed(2)))}`);
+        console.log(picocolors.bold(picocolors.green('=========================================\n')));
+      }
+      serverInstance.close();
+      console.log(picocolors.cyan(`[Wrapper] Background proxy shut down. Exiting with code ${code}.`));
     } catch {}
     process.exit(code);
   };
