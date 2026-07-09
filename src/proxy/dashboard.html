@@ -3,121 +3,199 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TokenFlow Scheduler Dashboard</title>
+  <title>TokenFlow Control Center</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-color: #0d0f12;
-      --card-bg: rgba(22, 28, 36, 0.6);
-      --border-color: rgba(255, 255, 255, 0.08);
+      --bg-color: #05070a;
+      --card-bg: rgba(13, 17, 23, 0.7);
+      --card-border: rgba(255, 255, 255, 0.06);
       --text-color: #f3f4f6;
-      --text-muted: #9ca3af;
-      --primary: #06b6d4; /* cyan */
-      --secondary: #8b5cf6; /* violet */
-      --success: #10b981; /* emerald */
+      --text-muted: #8a99ad;
+      --primary: #8b5cf6; /* Violet */
+      --primary-glow: rgba(139, 92, 246, 0.15);
+      --secondary: #06b6d4; /* Cyan */
+      --secondary-glow: rgba(6, 182, 212, 0.15);
+      --accent: #ec4899; /* Pink */
+      --success: #10b981; /* Emerald */
+      --warning: #f59e0b; /* Amber */
+      --danger: #ef4444; /* Red */
     }
 
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Outfit', -apple-system, sans-serif;
       background-color: var(--bg-color);
       color: var(--text-color);
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      overflow-x: hidden;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.08) 0px, transparent 50%);
+      background-attachment: fixed;
     }
 
     header {
       width: 100%;
       max-width: 1200px;
-      padding: 2rem 1rem;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
       box-sizing: border-box;
     }
 
-    header h1 {
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      color: white;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .brand h1 {
       margin: 0;
-      font-size: 1.8rem;
-      font-weight: 800;
-      background: linear-gradient(to right, var(--primary), var(--secondary));
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #c084fc);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
+    .status-badges {
+      display: flex;
+      gap: 0.75rem;
+    }
+
     .badge {
-      background: rgba(6, 182, 212, 0.1);
-      border: 1px solid rgba(6, 182, 212, 0.2);
-      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
       padding: 0.4rem 0.8rem;
       border-radius: 9999px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .badge-online .badge-dot {
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .badge-offline .badge-dot {
+      background-color: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
     }
 
     main {
       width: 100%;
       max-width: 1200px;
+      margin: 0 auto;
       padding: 0 1rem 3rem 1rem;
       box-sizing: border-box;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(12, 1fr);
       gap: 1.5rem;
     }
 
     .card {
       background: var(--card-bg);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
       padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
+      box-sizing: border-box;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s, border-color 0.2s;
     }
 
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 4px;
-      height: 100%;
-      background: linear-gradient(to bottom, var(--primary), var(--secondary));
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
     }
 
-    .card h2 {
-      margin-top: 0;
-      margin-bottom: 1rem;
-      font-size: 1.1rem;
-      font-weight: 700;
+    .col-4 { grid-column: span 4; }
+    .col-6 { grid-column: span 6; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+
+    @media (max-width: 900px) {
+      .col-4, .col-6, .col-8 { grid-column: span 12; }
+    }
+
+    .card-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      margin: 0 0 1rem 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-title-icon {
+      font-size: 1.1rem;
     }
 
     .metric-value {
       font-size: 2.5rem;
-      font-weight: 800;
-      margin: 0.5rem 0;
-      background: linear-gradient(120deg, #ffffff 40%, var(--primary));
+      font-weight: 700;
+      margin: 0.25rem 0;
+      background: linear-gradient(120deg, #ffffff 40%, #c084fc);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      letter-spacing: -0.03em;
     }
 
-    .metric-label {
+    .metric-desc {
       font-size: 0.85rem;
       color: var(--text-muted);
+      line-height: 1.4;
     }
 
     .progress-bar-container {
       width: 100%;
-      height: 8px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 9999px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 999px;
       margin-top: 1rem;
       overflow: hidden;
     }
@@ -125,132 +203,435 @@
     .progress-bar {
       height: 100%;
       width: 0%;
-      border-radius: 9999px;
+      border-radius: 999px;
       background: linear-gradient(to right, var(--primary), var(--secondary));
-      transition: width 0.5s ease-out;
+      transition: width 0.4s ease-out;
+    }
+
+    .budget-warning {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+      padding: 0.6rem 0.8rem;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      margin-top: 1rem;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
-      margin-top: 1rem;
+      margin-top: 1.2rem;
     }
 
-    .stat-item {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 0.8rem;
-      text-align: center;
+    .mini-stat {
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
     }
 
-    .stat-val {
-      font-size: 1.2rem;
+    .mini-stat-val {
+      font-size: 1.15rem;
       font-weight: 700;
-      color: var(--primary);
+      color: var(--text-color);
     }
 
-    .stat-lbl {
+    .mini-stat-lbl {
       font-size: 0.75rem;
       color: var(--text-muted);
       margin-top: 0.2rem;
     }
 
+    /* Limits bars styles */
+    .limits-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .limit-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .limit-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .limit-label {
+      color: var(--text-color);
+      font-weight: 500;
+    }
+
+    .limit-val {
+      color: var(--text-muted);
+    }
+
+    .limit-progress-bar {
+      height: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .limit-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      transition: width 0.4s ease-out;
+    }
+
+    .limit-tpm .limit-fill {
+      background: linear-gradient(to right, var(--primary), var(--accent));
+    }
+
+    .limit-rpm .limit-fill {
+      background: linear-gradient(to right, var(--secondary), var(--success));
+    }
+
+    /* Sparkline Chart Canvas */
+    .chart-container {
+      width: 100%;
+      height: 120px;
+      margin-top: 1rem;
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
     .footer {
-      margin-top: auto;
-      padding: 2rem;
+      width: 100%;
+      max-width: 1200px;
+      margin: auto auto 0 auto;
+      padding: 2rem 1rem;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 0.8rem;
       color: var(--text-muted);
-      text-align: center;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .footer-right {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .footer-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-link:hover {
+      color: var(--secondary);
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>TokenFlow Scheduler</h1>
-    <div class="badge" id="status-badge">Active</div>
+    <div class="brand">
+      <div class="brand-logo">TF</div>
+      <h1>TokenFlow Control Center</h1>
+    </div>
+    <div class="status-badges">
+      <div class="badge" id="ollama-badge">
+        <span class="badge-dot" style="background-color: var(--text-muted);"></span>
+        <span>Ollama: Checking...</span>
+      </div>
+      <div class="badge badge-online" id="status-badge">
+        <span class="badge-dot"></span>
+        <span id="status-text">Online</span>
+      </div>
+    </div>
   </header>
 
   <main>
-    <!-- Card: Scale Multiplier -->
-    <div class="card">
-      <h2>Adaptive Multiplier</h2>
+    <!-- Card: USD Spending & Budgets -->
+    <div class="card col-4">
+      <div class="card-title">
+        <span>Session Spending</span>
+        <span class="card-title-icon">💵</span>
+      </div>
+      <div class="metric-value" id="session-cost">$0.0000</div>
+      <div class="metric-desc" id="budget-desc">Real-time API session cost. No budget limit set.</div>
+      <div class="progress-bar-container" id="budget-progress-container" style="display: none;">
+        <div class="progress-bar" id="budget-bar"></div>
+      </div>
+      <div class="budget-warning" id="budget-alert">
+        <span>⚠️</span>
+        <span>Budget exceeded! Traffic failing over to local Ollama offline model.</span>
+      </div>
+      <div class="grid-2">
+        <div class="mini-stat">
+          <div class="mini-stat-val" id="total-requests">0</div>
+          <div class="mini-stat-lbl">Processed Jobs</div>
+        </div>
+        <div class="mini-stat">
+          <div class="mini-stat-val" id="uptime">0s</div>
+          <div class="mini-stat-lbl">Daemon Uptime</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card: Adaptive Multiplier -->
+    <div class="card col-4">
+      <div class="card-title">
+        <span>Adaptive Multiplier</span>
+        <span class="card-title-icon">⚡</span>
+      </div>
       <div class="metric-value" id="scale-multiplier">1.00</div>
-      <div class="metric-label">PID correction scale multiplier for token predictions</div>
-      <div class="progress-bar-container">
-        <div class="progress-bar" id="multiplier-bar"></div>
+      <div class="metric-desc">Dynamic PID scale calibration factor adjusting allocation estimates.</div>
+      <div class="chart-container">
+        <canvas id="multiplier-chart"></canvas>
       </div>
     </div>
 
-    <!-- Card: Token Statistics -->
-    <div class="card">
-      <h2>Tokens Saved</h2>
-      <div class="metric-value" id="tokens-saved">0</div>
-      <div class="metric-label">Total difference between estimated and actual usage</div>
+    <!-- Card: Token Economy -->
+    <div class="card col-4">
+      <div class="card-title">
+        <span>Tokens Saved</span>
+        <span class="card-title-icon">🎯</span>
+      </div>
+      <div class="metric-value" id="tokens-saved" style="color: var(--success); background: none; -webkit-text-fill-color: initial;">0</div>
+      <div class="metric-desc">Tokens saved via local scan mapping and prompt caching optimizations.</div>
       <div class="grid-2">
-        <div class="stat-item">
-          <div class="stat-val" id="total-actual">0</div>
-          <div class="stat-lbl">Actual Tokens</div>
+        <div class="mini-stat">
+          <div class="mini-stat-val" id="total-actual">0</div>
+          <div class="mini-stat-lbl">Actual Tokens</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-val" id="total-estimated">0</div>
-          <div class="stat-lbl">Estimated Tokens</div>
+        <div class="mini-stat">
+          <div class="mini-stat-val" id="total-estimated">0</div>
+          <div class="mini-stat-lbl">Estimated Tokens</div>
         </div>
+      </div>
+      <div class="mini-stat" style="margin-top: 1rem;">
+        <div class="mini-stat-val" id="active-queue">0</div>
+        <div class="mini-stat-lbl">Jobs Enqueued (Pacing Queue)</div>
       </div>
     </div>
 
-    <!-- Card: Rates & Constraints -->
-    <div class="card">
-      <h2>Rate Usage</h2>
-      <div class="metric-value" id="rate-requests">0</div>
-      <div class="metric-label">Total enqueued/processed request transactions</div>
-      <div class="grid-2">
-        <div class="stat-item">
-          <div class="stat-val" id="uptime">0s</div>
-          <div class="stat-lbl">Uptime</div>
+    <!-- Card: Rate Limit Statuses -->
+    <div class="card col-12">
+      <div class="card-title">
+        <span>Rate Limit Constraints & Utilization</span>
+        <span class="card-title-icon">📈</span>
+      </div>
+      <div class="limits-container">
+        <!-- TPM Limit -->
+        <div class="limit-row limit-tpm">
+          <div class="limit-header">
+            <span class="limit-label">Tokens Per Minute (TPM)</span>
+            <span class="limit-val" id="tpm-label">0 / 40,000</span>
+          </div>
+          <div class="limit-progress-bar">
+            <div class="limit-fill" id="tpm-fill"></div>
+          </div>
         </div>
-        <div class="stat-item">
-          <div class="stat-val" id="total-requests">0</div>
-          <div class="stat-lbl">Total Requests</div>
+        <!-- RPM Limit -->
+        <div class="limit-row limit-rpm">
+          <div class="limit-header">
+            <span class="limit-label">Requests Per Minute (RPM)</span>
+            <span class="limit-val" id="rpm-label">0 / 3</span>
+          </div>
+          <div class="limit-progress-bar">
+            <div class="limit-fill" id="rpm-fill"></div>
+          </div>
         </div>
       </div>
     </div>
   </main>
 
   <div class="footer">
-    TokenFlow v1.0 • Running on Local Node Engine
+    <div>TokenFlow v0.5.0 • Local Daemon Node</div>
+    <div class="footer-right">
+      <a href="https://github.com/peler1nl1kelt0s/TokenFlow" target="_blank" class="footer-link">Documentation</a>
+      <a href="/api/status" target="_blank" class="footer-link">JSON Status API</a>
+    </div>
   </div>
 
   <script>
+    // Real-time Sparkline chart implementation
+    const canvas = document.getElementById('multiplier-chart');
+    const ctx = canvas.getContext('2d');
+    const chartHistory = Array(30).fill(1.0);
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * window.devicePixelRatio;
+      canvas.height = rect.height * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drawChart() {
+      const w = canvas.getBoundingClientRect().width;
+      const h = canvas.getBoundingClientRect().height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw grid lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 4; i++) {
+        const y = (h / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      if (chartHistory.length === 0) return;
+
+      const minVal = 0.2;
+      const maxVal = 2.0;
+      const range = maxVal - minVal;
+
+      ctx.beginPath();
+      for (let i = 0; i < chartHistory.length; i++) {
+        const val = chartHistory[i];
+        const x = (w / (chartHistory.length - 1)) * i;
+        const y = h - ((val - minVal) / range) * (h - 20) - 10;
+        
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+
+      // Stroke line gradient
+      const gradient = ctx.createLinearGradient(0, 0, w, 0);
+      gradient.addColorStop(0, '#8b5cf6');
+      gradient.addColorStop(1, '#06b6d4');
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
+
+      // Draw filled area below path
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      const fillGradient = ctx.createLinearGradient(0, 0, 0, h);
+      fillGradient.addColorStop(0, 'rgba(139, 92, 246, 0.08)');
+      fillGradient.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+      ctx.fillStyle = fillGradient;
+      ctx.fill();
+    }
+
+    // Dynamic metrics updating
     async function updateMetrics() {
+      let isOnline = false;
       try {
         const res = await fetch('/api/status');
         if (!res.ok) throw new Error('Offline');
         const data = await res.json();
+        isOnline = true;
 
         // Update Multiplier
-        const mult = data.scaleMultiplier;
+        const mult = data.scaleMultiplier ?? 1.0;
         document.getElementById('scale-multiplier').innerText = mult.toFixed(2);
-        // Normalize multiplier [0.2, 5.0] to percentage
-        const pct = Math.min(100, Math.max(0, ((mult - 0.2) / 4.8) * 100));
-        document.getElementById('multiplier-bar').style.width = `${pct}%`;
+        
+        // Push to sparkline chart history
+        chartHistory.push(mult);
+        if (chartHistory.length > 30) chartHistory.shift();
+        drawChart();
 
-        // Update Tokens
-        document.getElementById('tokens-saved').innerText = data.tokensSaved.toLocaleString();
-        document.getElementById('total-actual').innerText = data.totalActualTokens.toLocaleString();
-        document.getElementById('total-estimated').innerText = data.totalEstimatedTokens.toLocaleString();
+        // Update Spending & Budget
+        const cost = data.cost ?? 0.0;
+        document.getElementById('session-cost').innerText = `$${cost.toFixed(4)}`;
+        
+        const budget = data.budget ?? 0.0;
+        if (budget > 0) {
+          document.getElementById('budget-progress-container').style.display = 'block';
+          document.getElementById('budget-desc').innerText = `Session budget limit: $${budget.toFixed(2)}`;
+          const budgetPct = Math.min(100, Math.max(0, (cost / budget) * 100));
+          document.getElementById('budget-bar').style.width = `${budgetPct}%`;
+          
+          if (data.isBudgetExceeded) {
+            document.getElementById('budget-alert').style.display = 'flex';
+            document.getElementById('budget-bar').style.background = 'var(--danger)';
+          } else {
+            document.getElementById('budget-alert').style.display = 'none';
+            document.getElementById('budget-bar').style.background = 'linear-gradient(to right, var(--primary), var(--secondary))';
+          }
+        } else {
+          document.getElementById('budget-progress-container').style.display = 'none';
+          document.getElementById('budget-desc').innerText = `Real-time API session cost. No budget limit set.`;
+          document.getElementById('budget-alert').style.display = 'none';
+        }
 
-        // Update Uptime and requests
-        document.getElementById('rate-requests').innerText = data.totalRequests;
-        document.getElementById('total-requests').innerText = data.totalRequests;
-        document.getElementById('uptime').innerText = `${data.uptimeSeconds}s`;
+        // Update Token metrics
+        document.getElementById('tokens-saved').innerText = (data.tokensSaved ?? 0).toLocaleString();
+        document.getElementById('total-actual').innerText = (data.totalActualTokens ?? 0).toLocaleString();
+        document.getElementById('total-estimated').innerText = (data.totalEstimatedTokens ?? 0).toLocaleString();
 
-        document.getElementById('status-badge').innerText = 'Online';
-        document.getElementById('status-badge').style.color = '#10b981';
+        // Update processed counters
+        document.getElementById('total-requests').innerText = data.totalRequests ?? 0;
+        document.getElementById('active-queue').innerText = data.limits?.requests ?? 0;
+        document.getElementById('uptime').innerText = `${data.uptimeSeconds ?? 0}s`;
+
+        // Update Rate Limit Constraints & Utilization bars
+        const tpmUsed = data.limits?.tokens ?? 0;
+        const tpmLimit = 40000; // Default nominal TPM
+        document.getElementById('tpm-label').innerText = `${tpmUsed.toLocaleString()} / ${tpmLimit.toLocaleString()}`;
+        const tpmPct = Math.min(100, (tpmUsed / tpmLimit) * 100);
+        document.getElementById('tpm-fill').style.width = `${tpmPct}%`;
+
+        const rpmUsed = data.limits?.requests ?? 0;
+        const rpmLimit = 3; // Default nominal RPM
+        document.getElementById('rpm-label').innerText = `${rpmUsed} / ${rpmLimit}`;
+        const rpmPct = Math.min(100, (rpmUsed / rpmLimit) * 100);
+        document.getElementById('rpm-fill').style.width = `${rpmPct}%`;
+
+        // Update status badge
+        const badge = document.getElementById('status-badge');
+        badge.className = 'badge badge-online';
+        document.getElementById('status-text').innerText = 'Online';
       } catch (err) {
-        document.getElementById('status-badge').innerText = 'Offline';
-        document.getElementById('status-badge').style.color = '#ef4444';
+        isOnline = false;
+        const badge = document.getElementById('status-badge');
+        badge.className = 'badge badge-offline';
+        document.getElementById('status-text').innerText = 'Offline';
+      }
+
+      // Check Ollama status health independently
+      try {
+        if (isOnline) {
+          // Send request to check if proxy detects Ollama running
+          // Or query Ollama status directly from the local browser
+          const ollamaRes = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(400) });
+          const ollamaBadge = document.getElementById('ollama-badge');
+          if (ollamaRes.ok) {
+            ollamaBadge.innerHTML = '<span class="badge-dot" style="background-color: var(--success); box-shadow: 0 0 8px var(--success);"></span><span>Ollama: Fallback Ready</span>';
+          } else {
+            ollamaBadge.innerHTML = '<span class="badge-dot" style="background-color: var(--warning); box-shadow: 0 0 8px var(--warning);"></span><span>Ollama: Not Running</span>';
+          }
+        }
+      } catch {
+        const ollamaBadge = document.getElementById('ollama-badge');
+        ollamaBadge.innerHTML = '<span class="badge-dot" style="background-color: var(--warning); box-shadow: 0 0 8px var(--warning);"></span><span>Ollama: Not Running</span>';
       }
     }
 
