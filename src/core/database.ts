@@ -34,8 +34,10 @@ const DEFAULT_CONFIG: TokenFlowConfig = {
     'claude-5-sonnet': { premium: 'claude-5-sonnet', standard: 'claude-4-5-haiku', inputPerMillion: 2.0, outputPerMillion: 10.0 },
     'claude-4-5-haiku': { premium: 'claude-5-sonnet', standard: 'claude-4-5-haiku', inputPerMillion: 1.0, outputPerMillion: 5.0 },
     
-    // Legacy/Existing Anthropic Tiers
+    // Official Standard Anthropic Tiers
+    'claude-3-5-sonnet-20241022': { premium: 'claude-3-5-sonnet-20241022', standard: 'claude-3-5-haiku-20241022', inputPerMillion: 3.0, outputPerMillion: 15.0 },
     'claude-3-5-sonnet-20240620': { premium: 'claude-3-5-sonnet-20240620', standard: 'claude-3-haiku-20240307', inputPerMillion: 3.0, outputPerMillion: 15.0 },
+    'claude-3-5-haiku-20241022': { premium: 'claude-3-5-sonnet-20241022', standard: 'claude-3-5-haiku-20241022', inputPerMillion: 1.0, outputPerMillion: 5.0 },
     'claude-3-haiku-20240307': { premium: 'claude-3-5-sonnet-20240620', standard: 'claude-3-haiku-20240307', inputPerMillion: 0.25, outputPerMillion: 1.25 },
     'claude-3-opus-20240229': { premium: 'claude-3-opus-20240229', standard: 'claude-3-haiku-20240307', inputPerMillion: 15.0, outputPerMillion: 75.0 },
     
@@ -45,7 +47,10 @@ const DEFAULT_CONFIG: TokenFlowConfig = {
     'gpt-5.6-luna': { premium: 'gpt-5.6-sol', standard: 'gpt-5.6-luna', inputPerMillion: 1.0, outputPerMillion: 6.0 },
     'gpt-5.4-nano': { premium: 'gpt-5.6-sol', standard: 'gpt-5.4-nano', inputPerMillion: 0.20, outputPerMillion: 1.25 },
 
-    // Legacy/Existing OpenAI Tiers
+    // Official Standard OpenAI Tiers & Reasoning Models
+    'o1-mini': { premium: 'o1-mini', standard: 'o1-mini', inputPerMillion: 3.0, outputPerMillion: 12.0 },
+    'o1-preview': { premium: 'o1-preview', standard: 'o1-mini', inputPerMillion: 15.0, outputPerMillion: 60.0 },
+    'o1': { premium: 'o1', standard: 'o1-mini', inputPerMillion: 15.0, outputPerMillion: 60.0 },
     'gpt-4o': { premium: 'gpt-4o', standard: 'gpt-4o-mini', inputPerMillion: 5.0, outputPerMillion: 15.0 },
     'gpt-4o-mini': { premium: 'gpt-4o', standard: 'gpt-4o-mini', inputPerMillion: 0.15, outputPerMillion: 0.60 },
   },
