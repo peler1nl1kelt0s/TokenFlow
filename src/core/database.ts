@@ -28,11 +28,24 @@ export interface SessionRecord {
 
 const DEFAULT_CONFIG: TokenFlowConfig = {
   models: {
-    // Anthropic Tiers
+    // Anthropic 2026 Tiers
+    'claude-5-fable': { premium: 'claude-5-fable', standard: 'claude-4-5-haiku', inputPerMillion: 10.0, outputPerMillion: 50.0 },
+    'claude-4-8-opus': { premium: 'claude-4-8-opus', standard: 'claude-4-5-haiku', inputPerMillion: 5.0, outputPerMillion: 25.0 },
+    'claude-5-sonnet': { premium: 'claude-5-sonnet', standard: 'claude-4-5-haiku', inputPerMillion: 2.0, outputPerMillion: 10.0 },
+    'claude-4-5-haiku': { premium: 'claude-5-sonnet', standard: 'claude-4-5-haiku', inputPerMillion: 1.0, outputPerMillion: 5.0 },
+    
+    // Legacy/Existing Anthropic Tiers
     'claude-3-5-sonnet-20240620': { premium: 'claude-3-5-sonnet-20240620', standard: 'claude-3-haiku-20240307', inputPerMillion: 3.0, outputPerMillion: 15.0 },
     'claude-3-haiku-20240307': { premium: 'claude-3-5-sonnet-20240620', standard: 'claude-3-haiku-20240307', inputPerMillion: 0.25, outputPerMillion: 1.25 },
     'claude-3-opus-20240229': { premium: 'claude-3-opus-20240229', standard: 'claude-3-haiku-20240307', inputPerMillion: 15.0, outputPerMillion: 75.0 },
-    // OpenAI Tiers
+    
+    // OpenAI 2026 Tiers
+    'gpt-5.6-sol': { premium: 'gpt-5.6-sol', standard: 'gpt-5.6-luna', inputPerMillion: 5.0, outputPerMillion: 30.0 },
+    'gpt-5.6-terra': { premium: 'gpt-5.6-terra', standard: 'gpt-5.6-luna', inputPerMillion: 2.5, outputPerMillion: 15.0 },
+    'gpt-5.6-luna': { premium: 'gpt-5.6-sol', standard: 'gpt-5.6-luna', inputPerMillion: 1.0, outputPerMillion: 6.0 },
+    'gpt-5.4-nano': { premium: 'gpt-5.6-sol', standard: 'gpt-5.4-nano', inputPerMillion: 0.20, outputPerMillion: 1.25 },
+
+    // Legacy/Existing OpenAI Tiers
     'gpt-4o': { premium: 'gpt-4o', standard: 'gpt-4o-mini', inputPerMillion: 5.0, outputPerMillion: 15.0 },
     'gpt-4o-mini': { premium: 'gpt-4o', standard: 'gpt-4o-mini', inputPerMillion: 0.15, outputPerMillion: 0.60 },
   },
@@ -62,7 +75,25 @@ export class TokenFlowDatabase {
     await this.ensureDir();
     try {
       const data = await fs.readFile(this.configFile, 'utf-8');
-      return JSON.parse(data);
+      const loaded = JSON.parse(data);
+      
+      // Dynamic auto-merge default config values into existing config files
+      let changed = false;
+      if (!loaded.models) {
+        loaded.models = {};
+        changed = true;
+      }
+      for (const [key, value] of Object.entries(DEFAULT_CONFIG.models)) {
+        if (!loaded.models[key]) {
+          loaded.models[key] = value;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await this.saveConfig(loaded);
+      }
+      
+      return loaded;
     } catch {
       // If config is missing, write default config and return it
       await this.saveConfig(DEFAULT_CONFIG);
