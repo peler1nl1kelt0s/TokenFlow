@@ -12,7 +12,7 @@ export class MultiModelRouter {
   private defaultCheap: string;
   private db: TokenFlowDatabase;
 
-  constructor(defaultPremium: string = 'claude-3-5-sonnet-20240620', defaultCheap: string = 'gpt-4o-mini') {
+  constructor(defaultPremium: string = 'claude-sonnet-5', defaultCheap: string = 'gpt-5.6-luna') {
     this.defaultPremium = defaultPremium;
     this.defaultCheap = defaultCheap;
     this.db = new TokenFlowDatabase();
@@ -43,11 +43,11 @@ export class MultiModelRouter {
 
     // If client only has Anthropic API keys, force routing within Anthropic family (Sonnet / Haiku)
     if (activeKeys.hasAnthropic && !activeKeys.hasOpenAi) {
-      selectedModel = isLowComplexity ? 'claude-3-haiku-20240307' : 'claude-3-5-sonnet-20240620';
+      selectedModel = isLowComplexity ? 'claude-haiku-4-5' : 'claude-sonnet-5';
     }
-    // If client only has OpenAI API keys, force routing within OpenAI family (GPT-4o / GPT-4o-mini)
+    // If client only has OpenAI API keys, force routing within OpenAI family (GPT-5.6-luna / GPT-5.6-sol)
     else if (activeKeys.hasOpenAi && !activeKeys.hasAnthropic) {
-      selectedModel = isLowComplexity ? 'gpt-4o-mini' : 'gpt-4o';
+      selectedModel = isLowComplexity ? 'gpt-5.6-luna' : 'gpt-5.6-sol';
     }
 
     // Resolve mapped model names from custom DB configuration overrides if available
