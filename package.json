@@ -1,5 +1,5 @@
 {
-  "name": "tokenflow",
+  "name": "@peler1nl1kelt0s/tokenflow",
   "version": "0.1.0",
   "description": "An open-source resource scheduler and traffic-shaping proxy for AI agents",
   "main": "dist/index.js",
@@ -8,11 +8,19 @@
     "tf": "./bin/tf.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && mkdir -p dist/proxy && cp src/proxy/dashboard.html dist/proxy/dashboard.html",
     "start": "node dist/cli/index.js",
     "dev": "tsx src/cli/index.js",
     "test": "vitest run",
     "postinstall": "node dist/scripts/postinstall.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "ai",
