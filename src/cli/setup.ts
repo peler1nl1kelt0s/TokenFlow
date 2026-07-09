@@ -3,6 +3,7 @@ import picocolors from 'picocolors';
 import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
+import { execSync } from 'child_process';
 import { SKILL_MD_CONTENT, AGENTS_LIST } from '../scripts/skillTemplate.js';
 
 const BANNER = `
@@ -14,23 +15,30 @@ ${picocolors.cyan('   ██║   ╚██████╔╝██║  ██�
 ${picocolors.cyan('   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═══╝╚═╝     ╚══════╝ ╚═════╝  ╚══╝╚══╝ ')}
 `;
 
-const ALIAS_BLOCK = `
-# === TokenFlow Auto-Scheduler Integration ===
-if [ -n "$(command -v tf)" ]; then
-  alias claude="tf exec claude"
-  alias aider="tf exec aider"
-fi
-# ============================================
-`;
+const SUPPORTED_CLI_COMMANDS = [
+  { value: 'claude', label: 'Claude Code (claude)' },
+  { value: 'aider', label: 'Aider (aider)' },
+  { value: 'gemini-cli', label: 'Gemini CLI (gemini-cli)' },
+  { value: 'codex', label: 'Codex (codex)' },
+];
+
+function isCommandInstalled(cmd: string): boolean {
+  try {
+    execSync(`command -v ${cmd}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function runInteractiveSetup() {
   console.log(BANNER);
 
   p.intro(picocolors.bold(picocolors.green('TokenFlow Interactive Setup Wizard')));
 
-  // 1. Prompt for shell profile aliases integration
+  // 1. Ask if the user wants to set up shell aliases
   const installShell = await p.confirm({
-    message: 'Do you want to integrate TokenFlow shell aliases (claude, aider) into your profile?',
+    message: 'Do you want to configure TokenFlow shell aliases for your terminal coding agents?',
     initialValue: true,
   });
 
@@ -39,7 +47,28 @@ export async function runInteractiveSetup() {
     process.exit(0);
   }
 
-  // 2. Scan home directory to detect installed coding agents
+  // 2. If yes, check which commands are installed and prompt for multiselect
+  let selectedAliases: string[] = [];
+  if (installShell) {
+    // Detect which commands are installed locally to pre-select them
+    const detectedAliases = SUPPORTED_CLI_COMMANDS.filter((cmd) => isCommandInstalled(cmd.value)).map((cmd) => cmd.value);
+
+    const aliasSelection = await p.multiselect({
+      message: 'Select which terminal agents you want to wrap with TokenFlow (installed agents are pre-selected):',
+      options: SUPPORTED_CLI_COMMANDS,
+      initialValues: detectedAliases,
+      required: false,
+    });
+
+    if (p.isCancel(aliasSelection)) {
+      p.cancel('Setup canceled.');
+      process.exit(0);
+    }
+
+    selectedAliases = aliasSelection as string[];
+  }
+
+  // 3. Scan home directory to detect installed coding agents for skills copying
   const s = p.spinner();
   s.start('Scanning system for active coding agents...');
 
@@ -61,7 +90,7 @@ export async function runInteractiveSetup() {
       : 'No active agent installations detected in home directory.'
   );
 
-  // 3. Prompt user to select which agents to inject skills to (pre-selecting all detected)
+  // 4. Prompt user to select which agents to inject skills to (pre-selecting all detected)
   let selectedAgents: string[] = [];
   if (detectedAgents.length > 0) {
     const options = detectedAgents.map((agent) => ({
@@ -83,13 +112,22 @@ export async function runInteractiveSetup() {
     selectedAgents = selection as string[];
   }
 
-  // 4. Perform actions with visual spinner feedback
+  // 5. Perform actions with visual spinner feedback
   const executionSpinner = p.spinner();
   executionSpinner.start('Applying configuration settings...');
 
-  // Step 4a: Integrate shell profile
+  // Step 5a: Generate dynamic alias block based on user selection
   let shellIntegrated = false;
-  if (installShell) {
+  if (installShell && selectedAliases.length > 0) {
+    let aliasBlockContent = '\n# === TokenFlow Auto-Scheduler Integration ===\nif [ -n "$(command -v tf)" ]; then\';';
+    
+    // Construct alias lines dynamically
+    let dynamicAliases = '\n# === TokenFlow Auto-Scheduler Integration ===\nif [ -n "$(command -v tf)" ]; then\n';
+    for (const cmd of selectedAliases) {
+      dynamicAliases += `  alias ${cmd}="tf exec ${cmd}"\n`;
+    }
+    dynamicAliases += 'fi\n# ============================================\n';
+
     const profiles = [
       path.join(homeDir, '.zshrc'),
       path.join(homeDir, '.bashrc'),
@@ -102,14 +140,14 @@ export async function runInteractiveSetup() {
         await fs.access(profile);
         const content = await fs.readFile(profile, 'utf-8');
         if (!content.includes('TokenFlow Auto-Scheduler Integration')) {
-          await fs.appendFile(profile, ALIAS_BLOCK);
+          await fs.appendFile(profile, dynamicAliases);
           shellIntegrated = true;
         }
       } catch {}
     }
   }
 
-  // Step 4b: Copy skills
+  // Step 5b: Copy skills
   let skillsInstalled = 0;
   for (const agentName of selectedAgents) {
     const agent = AGENTS_LIST.find((a) => a.name === agentName);
@@ -128,13 +166,13 @@ export async function runInteractiveSetup() {
 
   executionSpinner.stop('All configurations applied!');
 
-  // 5. Outro summary
+  // 6. Outro summary
   p.note(
     `Shell Profile: ${
       shellIntegrated
         ? picocolors.green('Integrated successfully')
         : picocolors.gray('No changes needed / skipped')
-    }\nSkills Injected: ${picocolors.green(`${skillsInstalled} agents configured`)}`,
+    }\nActive Aliases: ${picocolors.cyan(selectedAliases.join(', ') || 'none')}\nSkills Injected: ${picocolors.green(`${skillsInstalled} agents configured`)}`,
     'Configuration Summary'
   );
 

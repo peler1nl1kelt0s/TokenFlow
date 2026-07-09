@@ -1,17 +1,18 @@
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { execSync } from 'child_process';
 import { SKILL_MD_CONTENT, AGENTS_LIST } from './skillTemplate.js';
 import { runInteractiveSetup } from '../cli/setup.js';
 
-const ALIAS_BLOCK = `
-# === TokenFlow Auto-Scheduler Integration ===
-if [ -n "$(command -v tf)" ]; then
-  alias claude="tf exec claude"
-  alias aider="tf exec aider"
-fi
-# ============================================
-`;
+function isCommandInstalled(cmd: string): boolean {
+  try {
+    execSync(`command -v ${cmd}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function integrateShell() {
   const homeDir = os.homedir();
@@ -21,6 +22,21 @@ async function integrateShell() {
     path.join(homeDir, '.bash_profile'),
     path.join(homeDir, '.profile'),
   ];
+
+  // Detect which commands are installed locally
+  const supportedClis = ['claude', 'aider', 'gemini-cli', 'codex'];
+  const installedClis = supportedClis.filter(isCommandInstalled);
+
+  if (installedClis.length === 0) {
+    return; // No terminal coding agents installed, skip shell aliases
+  }
+
+  // Construct dynamic alias block
+  let dynamicAliases = '\n# === TokenFlow Auto-Scheduler Integration ===\nif [ -n "$(command -v tf)" ]; then\n';
+  for (const cmd of installedClis) {
+    dynamicAliases += `  alias ${cmd}="tf exec ${cmd}"\n`;
+  }
+  dynamicAliases += 'fi\n# ============================================\n';
 
   let integrated = false;
 
@@ -37,8 +53,8 @@ async function integrateShell() {
       if (content.includes('TokenFlow Auto-Scheduler Integration')) {
         continue;
       }
-      await fs.appendFile(profile, ALIAS_BLOCK);
-      console.log(`[TokenFlow] Automatically integrated with shell profile: ${profile}`);
+      await fs.appendFile(profile, dynamicAliases);
+      console.log(`[TokenFlow] Automatically integrated aliases for [${installedClis.join(', ')}] with shell profile: ${profile}`);
       integrated = true;
     } catch (err: any) {
       console.error(`[TokenFlow] Failed to write to profile ${profile}: ${err.message}`);

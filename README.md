@@ -88,7 +88,7 @@ If your NPM environment blocks automatic install scripts (e.g., `allow-scripts` 
 tf setup
 ```
 
-*This parses your active home directory configurations and allows you to select which agents to integrate.*
+*This parses your active environment, checks your PATH for installed coding CLI agents (claude, aider, etc.), and allows you to selectively choose which commands to alias and which agent directories to configure with the TokenFlow skill.*
 
 ### 3. Basic Usage (Zero-Config)
 To run your favorite terminal agent under TokenFlow's adaptive pacing queues:
