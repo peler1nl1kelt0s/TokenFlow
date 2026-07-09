@@ -31,15 +31,17 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
     process.exit(1);
   }
 
+  const sessionId = `sess_${Math.random().toString(36).substring(7)}`;
+
   // Override base URL environment variables for SDKs in child process
   const childEnv = {
     ...process.env,
-    ANTHROPIC_BASE_URL: `http://localhost:${port}`,
-    ANTHROPIC_API_URL: `http://localhost:${port}`,
-    OPENAI_BASE_URL: `http://localhost:${port}/v1`,
-    OPENAI_API_BASE: `http://localhost:${port}/v1`,
-    DEEPSEEK_BASE_URL: `http://localhost:${port}/v1`,
-    OPENROUTER_BASE_URL: `http://localhost:${port}/v1`,
+    ANTHROPIC_BASE_URL: `http://localhost:${port}?session_id=${sessionId}`,
+    ANTHROPIC_API_URL: `http://localhost:${port}?session_id=${sessionId}`,
+    OPENAI_BASE_URL: `http://localhost:${port}/v1?session_id=${sessionId}`,
+    OPENAI_API_BASE: `http://localhost:${port}/v1?session_id=${sessionId}`,
+    DEEPSEEK_BASE_URL: `http://localhost:${port}/v1?session_id=${sessionId}`,
+    OPENROUTER_BASE_URL: `http://localhost:${port}/v1?session_id=${sessionId}`,
   };
 
   console.log(picocolors.cyan(`[Wrapper] Spawning child agent process: ${commandArgs.join(' ')}`));

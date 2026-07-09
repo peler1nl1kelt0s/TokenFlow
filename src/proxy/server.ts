@@ -45,6 +45,8 @@ export function startProxyServer(config: ProxyServerConfig) {
 
   // Endpoint: OpenAI Format Chat Completions
   app.post('/v1/chat/completions', async (req, res) => {
+    const sessionId = (req.query.session_id as string) || 'default_session';
+    
     // Budget Guard Check with Ollama Fallback
     const isBudgetLimit = costTracker.isBudgetExceeded();
     let useOllamaFallback = false;
@@ -115,7 +117,7 @@ export function startProxyServer(config: ProxyServerConfig) {
           providerResponse = await scheduler.submit(jobId, async () => {
             console.log(picocolors.green(`[Scheduler] Dispatching Job ${jobId}`));
             return provider.execute(requestBody, abortController.signal);
-          }, { priority, tokensEstimate });
+          }, { priority, tokensEstimate, sessionId });
         } catch (err: any) {
           if (await isOllamaRunning()) {
             console.log(picocolors.yellow(`[Network] Connection failed. Falling back to local offline Ollama execution.`));
@@ -181,6 +183,8 @@ export function startProxyServer(config: ProxyServerConfig) {
 
   // Endpoint: Anthropic Format Messages
   app.post('/v1/messages', async (req, res) => {
+    const sessionId = (req.query.session_id as string) || 'default_session';
+    
     // Budget Guard Check with Ollama Fallback
     const isBudgetLimit = costTracker.isBudgetExceeded();
     let useOllamaFallback = false;
@@ -253,7 +257,7 @@ export function startProxyServer(config: ProxyServerConfig) {
           providerResponse = await scheduler.submit(jobId, async () => {
             console.log(picocolors.green(`[Scheduler] Dispatching Job ${jobId}`));
             return provider.execute(requestBody, abortController.signal);
-          }, { priority, tokensEstimate });
+          }, { priority, tokensEstimate, sessionId });
         } catch (err: any) {
           if (await isOllamaRunning()) {
             console.log(picocolors.yellow(`[Network] Connection failed. Falling back to local offline Ollama execution.`));

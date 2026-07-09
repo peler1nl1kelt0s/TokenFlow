@@ -81,4 +81,26 @@ describe('TokenFlowScheduler', () => {
     expect(results).toEqual(['B', 'C', 'A']);
     expect(final).toEqual(['resA', 'resB', 'resC']);
   });
+
+  it('should balance execution fairly between different sessions using DRR', async () => {
+    const scheduler = new TokenFlowScheduler({ tpm: 100000, rpm: 100 });
+    scheduler.pause();
+
+    const results: string[] = [];
+
+    // Session A enqueues 2 large jobs (each requiring 12000 tokens, exceeding quantum 10000)
+    const jobA1 = scheduler.submit('jobA1', async () => { results.push('A1'); }, { tokensEstimate: 12000, sessionId: 'sessionA' });
+    const jobA2 = scheduler.submit('jobA2', async () => { results.push('A2'); }, { tokensEstimate: 12000, sessionId: 'sessionA' });
+
+    // Session B enqueues 1 small job (3000 tokens)
+    const jobB1 = scheduler.submit('jobB1', async () => { results.push('B1'); }, { tokensEstimate: 3000, sessionId: 'sessionB' });
+
+    scheduler.resume();
+    await Promise.all([jobA1, jobA2, jobB1]);
+
+    // Because session A's first job requires 12000 tokens (which is > quantum of 10000),
+    // it cannot run in the first turn. Session B's job requires 3000 tokens (<= 10000),
+    // so it executes first. A runs in subsequent rounds once deficit quota accumulates.
+    expect(results[0]).toBe('B1');
+  });
 });

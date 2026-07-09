@@ -9,6 +9,7 @@ export interface ScheduledJob<T = any> {
   resolve: (value: T) => void;
   reject: (err: any) => void;
   submittedAt: number;
+  sessionId: string; // Grouping identifier for tab/client session isolation
 }
 
 export class TokenFlowScheduler {
@@ -18,6 +19,10 @@ export class TokenFlowScheduler {
   private isProcessing = false;
   private isPaused = false;
   private timer: NodeJS.Timeout | null = null;
+
+  // Deficit Round Robin (DRR) State variables
+  private deficits: Record<string, number> = {};
+  private quantum = 10000; // Base token quantum allocated per session round-robin turn
 
   constructor(limits: LimiterLimits) {
     this.limiter = new TokenRateLimiter(limits);
@@ -47,7 +52,7 @@ export class TokenFlowScheduler {
   public submit<T>(
     id: string,
     execute: () => Promise<T>,
-    options: { priority?: number; tokensEstimate?: number } = {}
+    options: { priority?: number; tokensEstimate?: number; sessionId?: string } = {}
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const nominalEstimate = options.tokensEstimate ?? 1000;
@@ -61,6 +66,7 @@ export class TokenFlowScheduler {
         resolve,
         reject,
         submittedAt: Date.now(),
+        sessionId: options.sessionId || 'default_session',
       };
 
       this.queue.push(job);
@@ -83,7 +89,7 @@ export class TokenFlowScheduler {
   }
 
   /**
-   * Core scheduler loop
+   * Core scheduler loop using Deficit Round Robin (DRR) scheduling policy
    */
   private async scheduleLoop() {
     if (this.isProcessing || this.isPaused) return;
@@ -95,28 +101,64 @@ export class TokenFlowScheduler {
     }
 
     try {
-      while (this.queue.length > 0) {
-        const job = this.queue[0];
-        const now = Date.now();
-        const delay = this.limiter.timeUntilAvailable(job.tokensEstimate, now);
+      let madeProgress = true;
 
-        if (delay > 0) {
-          // Throttled: Wait for the rate limiter to clear
-          this.timer = setTimeout(() => {
-            this.isProcessing = false;
-            this.scheduleLoop();
-          }, delay);
-          break;
+      while (this.queue.length > 0 && madeProgress) {
+        madeProgress = false;
+
+        // Retrieve active session IDs currently having jobs in the queue
+        const activeSessions = Array.from(new Set(this.queue.map(j => j.sessionId)));
+        if (activeSessions.length === 0) break;
+
+        for (const sessionId of activeSessions) {
+          // Allocate quantum tokens to this session for the current round
+          this.deficits[sessionId] = (this.deficits[sessionId] || 0) + this.quantum;
+
+          // Process jobs belonging to this session while deficit allows
+          while (true) {
+            // Find first job in the sorted queue for the current session
+            const jobIndex = this.queue.findIndex(j => j.sessionId === sessionId);
+            if (jobIndex === -1) {
+              // Reset deficit if queue is empty for this session
+              this.deficits[sessionId] = 0;
+              break;
+            }
+
+            const job = this.queue[jobIndex];
+            const now = Date.now();
+
+            // Check if session has accumulated enough deficit quota to execute the job
+            if (job.tokensEstimate > this.deficits[sessionId]) {
+              // Insufficient deficit token quota, wait for next round
+              break;
+            }
+
+            // Verify rate-limiting window availability
+            const delay = this.limiter.timeUntilAvailable(job.tokensEstimate, now);
+            if (delay > 0) {
+              // Globally throttled: Wait for the rate-limiting window to clear
+              this.timer = setTimeout(() => {
+                this.isProcessing = false;
+                this.scheduleLoop();
+              }, delay);
+              return; // Stop processing loop and wait for timer to fire
+            }
+
+            // Dequeue job from the queue
+            this.queue.splice(jobIndex, 1);
+
+            // Deduct tokens from session's deficit accumulator
+            this.deficits[sessionId] -= job.tokensEstimate;
+
+            // Optimistically record usage in rate limiter
+            this.limiter.record(job.tokensEstimate, now);
+
+            // Trigger asynchronous job execution
+            this.executeJob(job);
+
+            madeProgress = true;
+          }
         }
-
-        // Dequeue job
-        this.queue.shift();
-
-        // Optimistically record token usage in limiter
-        this.limiter.record(job.tokensEstimate, now);
-
-        // Execute asynchronous job (do not block the scheduling loop)
-        this.executeJob(job);
       }
     } finally {
       if (!this.timer) {
@@ -126,18 +168,13 @@ export class TokenFlowScheduler {
   }
 
   private async executeJob(job: ScheduledJob) {
-    const startedAt = Date.now();
     try {
       const result = await job.execute();
-      
-      // Here, if actual response size is known (e.g. from telemetry),
-      // we could calibrate the rate limiter with actual vs estimated difference.
-      
       job.resolve(result);
     } catch (err) {
       job.reject(err);
     } finally {
-      // Re-trigger queue checking in case slots opened up
+      // Re-trigger scheduler loop
       this.scheduleLoop();
     }
   }

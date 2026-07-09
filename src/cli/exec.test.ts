@@ -61,9 +61,9 @@ describe('CLI Execution Wrapper', () => {
     
     // Verify environment variables were correctly injected
     expect(options?.env).toBeDefined();
-    expect(options?.env?.ANTHROPIC_BASE_URL).toBe('http://localhost:9099');
-    expect(options?.env?.OPENAI_BASE_URL).toBe('http://localhost:9099/v1');
-    expect(options?.env?.OPENAI_API_BASE).toBe('http://localhost:9099/v1');
+    expect(options?.env?.ANTHROPIC_BASE_URL).toContain('http://localhost:9099');
+    expect(options?.env?.OPENAI_BASE_URL).toContain('http://localhost:9099/v1');
+    expect(options?.env?.OPENAI_API_BASE).toContain('http://localhost:9099/v1');
 
     // Wait for async child process close handler to execute before tearing down process.exit mock
     await new Promise((resolve) => setTimeout(resolve, 30));

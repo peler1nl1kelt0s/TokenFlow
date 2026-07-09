@@ -45,6 +45,7 @@ Instead of optimizing for raw, bursty throughput that leads to rate-limiting fai
 ## Key Features
 
 *   **Closed-Loop PID Control**: Dynamically adjusts token allocation rates and queuing delays using a mathematical Proportional-Integral-Derivative (PID) controller. This shapes traffic, eliminating HTTP 429 rate limit exceptions before they happen.
+*   **Weighted Fair-Share Queueing (DRR Scheduler)**: Groups jobs by terminal session and splits token bandwidth fairly using a Deficit Round Robin (DRR) policy. If you run multiple agents in different tabs, one heavy session won't starve other active agent sessions.
 *   **Adaptive Estimation Calibration**: Learns from transaction execution errors in real-time. If the agent's actual consumption is significantly lower than estimated (e.g., fast failures or small replies), the scheduler scales down enqueued allocations, allowing more queries to pack into the active rate window.
 *   **Zero-Token Repository Scanner**: Recursively compiles Lines of Code (LOC), directory depth, file counts, and dependency imports locally using a high-speed AST/metadata parser. It sends a highly compressed summary matrix under 200 tokens, avoiding sending whole directory trees to LLMs.
 *   **Context Window Governance & Deflation**: Monitors context window pressure ($P_c$). When the threshold is exceeded (default: 80%), it automatically compresses intermediate message logs into a system-guided summary while keeping recent turns intact.
