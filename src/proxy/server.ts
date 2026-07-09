@@ -7,6 +7,7 @@ import { ContextManager } from '../core/contextManager.js';
 import { MultiModelRouter } from './router.js';
 import { TokenFlowCostTracker } from '../core/costTracker.js';
 import { scanRepository } from '../estimators/repoScanner.js';
+import { injectAnthropicCache } from '../core/promptCache.js';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs/promises';
@@ -192,6 +193,9 @@ export function startProxyServer(config: ProxyServerConfig) {
     const route = anthropicRouter.route(requestBody, complexityHeader);
     requestBody.model = route.model;
     console.log(picocolors.cyan(`[Router] Routed request to model: ${route.model}`));
+
+    // Apply Anthropic Prompt Caching Enforcer
+    injectAnthropicCache(requestBody);
 
     const provider = new AnthropicProvider(apiKey);
     const tokensEstimate = provider.estimateTokens(requestBody);
