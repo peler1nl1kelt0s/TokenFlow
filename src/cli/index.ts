@@ -112,4 +112,8 @@ program
     await runInteractiveSetup();
   });
 
-program.parse(process.argv);
+if (process.argv.length <= 2) {
+  runInteractiveSetup().catch(() => {});
+} else {
+  program.parse(process.argv);
+}

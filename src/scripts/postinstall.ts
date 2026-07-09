@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 import { SKILL_MD_CONTENT, AGENTS_LIST } from './skillTemplate.js';
+import { runInteractiveSetup } from '../cli/setup.js';
 
 const ALIAS_BLOCK = `
 # === TokenFlow Auto-Scheduler Integration ===
@@ -50,7 +51,6 @@ async function integrateShell() {
     const parentDir = path.dirname(skillsDir);
 
     try {
-      // If the agent configuration folder exists, inject custom skill
       await fs.access(parentDir);
       const targetSkillDir = path.join(skillsDir, 'tokenflow');
       await fs.mkdir(targetSkillDir, { recursive: true });
@@ -68,4 +68,19 @@ async function integrateShell() {
   }
 }
 
-integrateShell().catch(() => {});
+async function runInstaller() {
+  // If it's a TTY terminal and running interactively, run the beautiful CLI Wizard!
+  if (process.stdin.isTTY && process.stdout.isTTY) {
+    try {
+      await runInteractiveSetup();
+      return;
+    } catch {
+      // Fallback to silent installation if wizard throws
+    }
+  }
+
+  // Fallback to silent automatic installation
+  await integrateShell();
+}
+
+runInstaller().catch(() => {});
