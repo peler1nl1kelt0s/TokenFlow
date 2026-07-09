@@ -6,6 +6,7 @@ import { ProviderRequest } from '../providers/types.js';
 import { ContextManager } from '../core/contextManager.js';
 import { MultiModelRouter } from './router.js';
 import { TokenFlowCostTracker } from '../core/costTracker.js';
+import { TokenFlowDatabase } from '../core/database.js';
 import { scanRepository } from '../estimators/repoScanner.js';
 import { injectAnthropicCache } from '../core/promptCache.js';
 import { OllamaProvider, isOllamaRunning } from '../providers/ollama.js';
@@ -89,7 +90,10 @@ export function startProxyServer(config: ProxyServerConfig) {
 
     // Apply Multi-Model Routing Complexity Check
     const complexityHeader = req.headers['x-tokenflow-complexity'] as string;
-    const route = openAiRouter.route(requestBody, complexityHeader);
+    const route = await openAiRouter.route(requestBody, complexityHeader, {
+      hasOpenAi: !!apiKey,
+      hasAnthropic: !!process.env.ANTHROPIC_API_KEY
+    });
     requestBody.model = route.model;
     console.log(picocolors.cyan(`[Router] Routed request to model: ${route.model}`));
 
@@ -163,7 +167,7 @@ export function startProxyServer(config: ProxyServerConfig) {
       scheduler.recordActualUsage(tokensEstimate, actualTokens);
 
       // Record USD cost transaction
-      costTracker.recordTransaction(requestBody.model || 'default', actualInputTokens, actualOutputTokens);
+      await costTracker.recordTransaction(requestBody.model || 'default', actualInputTokens, actualOutputTokens);
 
       // Update session statistics
       sessionStats.totalRequests++;
@@ -227,7 +231,10 @@ export function startProxyServer(config: ProxyServerConfig) {
 
     // Apply Multi-Model Routing
     const complexityHeader = req.headers['x-tokenflow-complexity'] as string;
-    const route = anthropicRouter.route(requestBody, complexityHeader);
+    const route = await anthropicRouter.route(requestBody, complexityHeader, {
+      hasOpenAi: !!process.env.OPENAI_API_KEY,
+      hasAnthropic: !!apiKey
+    });
     requestBody.model = route.model;
     console.log(picocolors.cyan(`[Router] Routed request to model: ${route.model}`));
 
@@ -301,7 +308,7 @@ export function startProxyServer(config: ProxyServerConfig) {
       scheduler.recordActualUsage(tokensEstimate, actualTokens);
 
       // Record USD cost transaction
-      costTracker.recordTransaction(requestBody.model || 'default', actualInputTokens, actualOutputTokens);
+      await costTracker.recordTransaction(requestBody.model || 'default', actualInputTokens, actualOutputTokens);
 
       // Update session statistics
       sessionStats.totalRequests++;
@@ -332,7 +339,68 @@ export function startProxyServer(config: ProxyServerConfig) {
       cost: costTracker.getCumulativeCost(),
       budget: costTracker.getBudgetLimit(),
       isBudgetExceeded: costTracker.isBudgetExceeded(),
+      isPaused: scheduler.getIsPaused(),
     });
+  });
+
+  // GET Config Endpoint
+  app.get('/api/config', async (req, res) => {
+    try {
+      const db = new TokenFlowDatabase();
+      const config = await db.getConfig();
+      res.json(config);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST Config Endpoint
+  app.post('/api/config', async (req, res) => {
+    try {
+      const db = new TokenFlowDatabase();
+      const newConfig = req.body;
+      await db.saveConfig(newConfig);
+      
+      // Update scheduler limits dynamically
+      if (newConfig.tpm && newConfig.rpm) {
+        scheduler.updateLimits({ tpm: parseInt(newConfig.tpm, 10), rpm: parseInt(newConfig.rpm, 10) });
+      }
+
+      // Update costTracker budget limit
+      if (typeof newConfig.budgetLimit === 'number') {
+        costTracker.updateBudgetLimit(newConfig.budgetLimit);
+      }
+      
+      res.json({ success: true, config: newConfig });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST Control Queue Endpoint
+  app.post('/api/control', (req, res) => {
+    const { action } = req.body;
+    if (action === 'pause') {
+      scheduler.pause();
+      console.log(picocolors.yellow('[Scheduler] Queue paused dynamically via Control Panel API.'));
+      return res.json({ success: true, paused: true });
+    } else if (action === 'resume') {
+      scheduler.resume();
+      console.log(picocolors.green('[Scheduler] Queue resumed dynamically via Control Panel API.'));
+      return res.json({ success: true, paused: false });
+    }
+    res.status(400).json({ error: 'Invalid control action' });
+  });
+
+  // GET History Logs Endpoint
+  app.get('/api/history', async (req, res) => {
+    try {
+      const db = new TokenFlowDatabase();
+      const history = await db.getHistory();
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Serve static HTML Web Dashboard

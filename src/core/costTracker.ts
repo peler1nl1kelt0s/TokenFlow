@@ -1,47 +1,33 @@
+import { TokenFlowDatabase } from './database.js';
+
 export interface ModelPricing {
   inputPerMillion: number;
   outputPerMillion: number;
 }
 
-const PRICING_DATABASE: Record<string, ModelPricing> = {
-  // Anthropic Models
-  'claude-3-5-sonnet-20240620': { inputPerMillion: 3.0, outputPerMillion: 15.0 },
-  'claude-3-haiku-20240307': { inputPerMillion: 0.25, outputPerMillion: 1.25 },
-  // OpenAI Models
-  'gpt-4o': { inputPerMillion: 5.0, outputPerMillion: 15.0 },
-  'gpt-4o-mini': { inputPerMillion: 0.15, outputPerMillion: 0.6 },
-  // Default Fallback
-  'default': { inputPerMillion: 3.0, outputPerMillion: 15.0 },
-};
-
 export class TokenFlowCostTracker {
   private cumulativeCost: number = 0;
   private budgetLimit: number;
+  private db: TokenFlowDatabase;
 
   constructor(budgetLimit: number = 0) {
     this.budgetLimit = budgetLimit;
+    this.db = new TokenFlowDatabase();
   }
 
-  public getPricing(model: string): ModelPricing {
-    // Sort keys by length descending to match more specific keys (e.g. gpt-4o-mini) before shorter keys (e.g. gpt-4o)
-    const sortedKeys = Object.keys(PRICING_DATABASE).sort((a, b) => b.length - a.length);
-    for (const key of sortedKeys) {
-      if (model.includes(key)) {
-        return PRICING_DATABASE[key];
-      }
-    }
-    return PRICING_DATABASE['default'];
+  public async getPricing(model: string): Promise<ModelPricing> {
+    return this.db.getPricingForModel(model);
   }
 
-  public calculateCost(model: string, inputTokens: number, outputTokens: number): number {
-    const pricing = this.getPricing(model);
+  public async calculateCost(model: string, inputTokens: number, outputTokens: number): Promise<number> {
+    const pricing = await this.getPricing(model);
     const inputCost = (inputTokens / 1000000) * pricing.inputPerMillion;
     const outputCost = (outputTokens / 1000000) * pricing.outputPerMillion;
     return inputCost + outputCost;
   }
 
-  public recordTransaction(model: string, inputTokens: number, outputTokens: number): number {
-    const cost = this.calculateCost(model, inputTokens, outputTokens);
+  public async recordTransaction(model: string, inputTokens: number, outputTokens: number): Promise<number> {
+    const cost = await this.calculateCost(model, inputTokens, outputTokens);
     this.cumulativeCost += cost;
     return cost;
   }
@@ -59,6 +45,10 @@ export class TokenFlowCostTracker {
 
   public getBudgetLimit(): number {
     return this.budgetLimit;
+  }
+
+  public updateBudgetLimit(limit: number) {
+    this.budgetLimit = limit;
   }
 
   public getSummary() {

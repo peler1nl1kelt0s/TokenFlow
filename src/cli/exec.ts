@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { startProxyServer } from '../proxy/server.js';
+import { TokenFlowDatabase } from '../core/database.js';
 import picocolors from 'picocolors';
 
 export async function runExecCommand(commandArgs: string[], options: { port: number; tpm: number; rpm: number; budget: number }) {
@@ -115,6 +116,20 @@ export async function runExecCommand(commandArgs: string[], options: { port: num
       }
 
       if (stats) {
+        try {
+          const db = new TokenFlowDatabase();
+          await db.recordSession({
+            id: `session_${Math.random().toString(36).substring(7)}`,
+            startTime: stats.startTime,
+            endTime: Date.now(),
+            totalRequests: stats.totalRequests,
+            actualTokens: stats.totalActualTokens,
+            estimatedTokens: stats.totalEstimatedTokens,
+            savedTokens: Math.max(0, stats.totalEstimatedTokens - stats.totalActualTokens),
+            cost: stats.cost || 0.0,
+          });
+        } catch {}
+
         const uptime = Math.round((Date.now() - stats.startTime) / 1000);
         const saved = Math.max(0, stats.totalEstimatedTokens - stats.totalActualTokens);
         

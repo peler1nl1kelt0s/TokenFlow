@@ -80,6 +80,34 @@
       -webkit-text-fill-color: transparent;
     }
 
+    /* Tabs Navigation */
+    .nav-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      padding: 0.25rem;
+      border-radius: 12px;
+      margin-left: 2rem;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-color);
+    }
+
     .status-badges {
       display: flex;
       gap: 0.75rem;
@@ -127,9 +155,16 @@
       margin: 0 auto;
       padding: 0 1rem 3rem 1rem;
       box-sizing: border-box;
-      display: grid;
+    }
+
+    .tab-content {
+      display: none;
       grid-template-columns: repeat(12, 1fr);
       gap: 1.5rem;
+    }
+
+    .tab-content.active {
+      display: grid;
     }
 
     .card {
@@ -149,13 +184,14 @@
       border-color: rgba(255, 255, 255, 0.12);
     }
 
+    .col-3 { grid-column: span 3; }
     .col-4 { grid-column: span 4; }
     .col-6 { grid-column: span 6; }
     .col-8 { grid-column: span 8; }
     .col-12 { grid-column: span 12; }
 
     @media (max-width: 900px) {
-      .col-4, .col-6, .col-8 { grid-column: span 12; }
+      .col-3, .col-4, .col-6, .col-8 { grid-column: span 12; }
     }
 
     .card-title {
@@ -317,6 +353,88 @@
       display: block;
     }
 
+    /* Form Controls & Inputs */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .form-control {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 0.75rem;
+      color: var(--text-color);
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--secondary);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border: none;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover {
+      opacity: 0.9;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: #05070a;
+    }
+
+    /* History Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.9rem;
+    }
+
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      color: var(--text-color);
+    }
+
     .footer {
       width: 100%;
       max-width: 1200px;
@@ -351,7 +469,11 @@
   <header>
     <div class="brand">
       <div class="brand-logo">TF</div>
-      <h1>TokenFlow Control Center</h1>
+      <h1>TokenFlow</h1>
+      <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('tab-telemetry')">Telemetry</button>
+        <button class="tab-btn" onclick="switchTab('tab-settings')">Control & Settings</button>
+      </div>
     </div>
     <div class="status-badges">
       <div class="badge" id="ollama-badge">
@@ -366,96 +488,186 @@
   </header>
 
   <main>
-    <!-- Card: USD Spending & Budgets -->
-    <div class="card col-4">
-      <div class="card-title">
-        <span>Session Spending</span>
-        <span class="card-title-icon">💵</span>
-      </div>
-      <div class="metric-value" id="session-cost">$0.0000</div>
-      <div class="metric-desc" id="budget-desc">Real-time API session cost. No budget limit set.</div>
-      <div class="progress-bar-container" id="budget-progress-container" style="display: none;">
-        <div class="progress-bar" id="budget-bar"></div>
-      </div>
-      <div class="budget-warning" id="budget-alert">
-        <span>⚠️</span>
-        <span>Budget exceeded! Traffic failing over to local Ollama offline model.</span>
-      </div>
-      <div class="grid-2">
-        <div class="mini-stat">
-          <div class="mini-stat-val" id="total-requests">0</div>
-          <div class="mini-stat-lbl">Processed Jobs</div>
+    <!-- TAB 1: TELEMETRY -->
+    <div id="tab-telemetry" class="tab-content active">
+      <!-- Card: USD Spending & Budgets -->
+      <div class="card col-4">
+        <div class="card-title">
+          <span>Session Spending</span>
+          <span class="card-title-icon">💵</span>
         </div>
-        <div class="mini-stat">
-          <div class="mini-stat-val" id="uptime">0s</div>
-          <div class="mini-stat-lbl">Daemon Uptime</div>
+        <div class="metric-value" id="session-cost">$0.0000</div>
+        <div class="metric-desc" id="budget-desc">Real-time API session cost. No budget limit set.</div>
+        <div class="progress-bar-container" id="budget-progress-container" style="display: none;">
+          <div class="progress-bar" id="budget-bar"></div>
+        </div>
+        <div class="budget-warning" id="budget-alert">
+          <span>⚠️</span>
+          <span>Budget exceeded! Traffic failing over to local Ollama offline model.</span>
+        </div>
+        <div class="grid-2">
+          <div class="mini-stat">
+            <div class="mini-stat-val" id="total-requests">0</div>
+            <div class="mini-stat-lbl">Processed Jobs</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-val" id="uptime">0s</div>
+            <div class="mini-stat-lbl">Daemon Uptime</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Adaptive Multiplier -->
+      <div class="card col-4">
+        <div class="card-title">
+          <span>Adaptive Multiplier</span>
+          <span class="card-title-icon">⚡</span>
+        </div>
+        <div class="metric-value" id="scale-multiplier">1.00</div>
+        <div class="metric-desc">Dynamic PID scale calibration factor adjusting allocation estimates.</div>
+        <div class="chart-container">
+          <canvas id="multiplier-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Card: Token Economy -->
+      <div class="card col-4">
+        <div class="card-title">
+          <span>Tokens Saved</span>
+          <span class="card-title-icon">🎯</span>
+        </div>
+        <div class="metric-value" id="tokens-saved" style="color: var(--success); background: none; -webkit-text-fill-color: initial;">0</div>
+        <div class="metric-desc">Tokens saved via local scan mapping and prompt caching.</div>
+        <div class="grid-2">
+          <div class="mini-stat">
+            <div class="mini-stat-val" id="total-actual">0</div>
+            <div class="mini-stat-lbl">Actual Tokens</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-val" id="total-estimated">0</div>
+            <div class="mini-stat-lbl">Estimated Tokens</div>
+          </div>
+        </div>
+        <div class="mini-stat" style="margin-top: 1rem;">
+          <div class="mini-stat-val" id="active-queue">0</div>
+          <div class="mini-stat-lbl">Jobs Enqueued (Pacing Queue)</div>
+        </div>
+      </div>
+
+      <!-- Card: Rate Limit Statuses -->
+      <div class="card col-12">
+        <div class="card-title">
+          <span>Rate Limit Constraints & Utilization</span>
+          <span class="card-title-icon">📈</span>
+        </div>
+        <div class="limits-container">
+          <!-- TPM Limit -->
+          <div class="limit-row limit-tpm">
+            <div class="limit-header">
+              <span class="limit-label">Tokens Per Minute (TPM)</span>
+              <span class="limit-val" id="tpm-label">0 / 40,000</span>
+            </div>
+            <div class="limit-progress-bar">
+              <div class="limit-fill" id="tpm-fill"></div>
+            </div>
+          </div>
+          <!-- RPM Limit -->
+          <div class="limit-row limit-rpm">
+            <div class="limit-header">
+              <span class="limit-label">Requests Per Minute (RPM)</span>
+              <span class="limit-val" id="rpm-label">0 / 3</span>
+            </div>
+            <div class="limit-progress-bar">
+              <div class="limit-fill" id="rpm-fill"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Card: Adaptive Multiplier -->
-    <div class="card col-4">
-      <div class="card-title">
-        <span>Adaptive Multiplier</span>
-        <span class="card-title-icon">⚡</span>
+    <!-- TAB 2: SETTINGS & CONTROL -->
+    <div id="tab-settings" class="tab-content">
+      <!-- Card: Queue Interactive Control -->
+      <div class="card col-4">
+        <div class="card-title">
+          <span>Scheduler Controls</span>
+          <span class="card-title-icon">🎮</span>
+        </div>
+        <p class="metric-desc">Manually pause or resume execution of enqueued pacing queue requests.</p>
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem;">
+          <button class="btn" id="btn-pause" onclick="controlQueue('pause')">Pause Queue</button>
+          <button class="btn btn-warning" id="btn-resume" onclick="controlQueue('resume')" style="display: none;">Resume Queue</button>
+        </div>
+        <div id="queue-status-note" style="margin-top: 1rem; font-size: 0.8rem; color: var(--success); font-weight: 600;">
+          Queue Status: Running
+        </div>
       </div>
-      <div class="metric-value" id="scale-multiplier">1.00</div>
-      <div class="metric-desc">Dynamic PID scale calibration factor adjusting allocation estimates.</div>
-      <div class="chart-container">
-        <canvas id="multiplier-chart"></canvas>
-      </div>
-    </div>
 
-    <!-- Card: Token Economy -->
-    <div class="card col-4">
-      <div class="card-title">
-        <span>Tokens Saved</span>
-        <span class="card-title-icon">🎯</span>
-      </div>
-      <div class="metric-value" id="tokens-saved" style="color: var(--success); background: none; -webkit-text-fill-color: initial;">0</div>
-      <div class="metric-desc">Tokens saved via local scan mapping and prompt caching optimizations.</div>
-      <div class="grid-2">
-        <div class="mini-stat">
-          <div class="mini-stat-val" id="total-actual">0</div>
-          <div class="mini-stat-lbl">Actual Tokens</div>
+      <!-- Card: Dynamic Configuration Form -->
+      <div class="card col-8">
+        <div class="card-title">
+          <span>Dynamic Settings Form</span>
+          <span class="card-title-icon">⚙️</span>
         </div>
-        <div class="mini-stat">
-          <div class="mini-stat-val" id="total-estimated">0</div>
-          <div class="mini-stat-lbl">Estimated Tokens</div>
-        </div>
+        <form id="settings-form" onsubmit="saveSettings(event)" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group">
+            <label for="input-tpm">Tokens Per Minute Limit (TPM)</label>
+            <input type="number" id="input-tpm" class="form-control" required min="1000">
+          </div>
+          <div class="form-group">
+            <label for="input-rpm">Requests Per Minute Limit (RPM)</label>
+            <input type="number" id="input-rpm" class="form-control" required min="1">
+          </div>
+          <div class="form-group" style="grid-column: span 2;">
+            <label for="input-budget">Session Spending Budget Limit (USD)</label>
+            <input type="number" step="0.01" id="input-budget" class="form-control" required min="0">
+          </div>
+          <div style="grid-column: span 2; display: flex; justify-content: flex-end; margin-top: 1rem;">
+            <button type="submit" class="btn">Apply Config Changes</button>
+          </div>
+        </form>
       </div>
-      <div class="mini-stat" style="margin-top: 1rem;">
-        <div class="mini-stat-val" id="active-queue">0</div>
-        <div class="mini-stat-lbl">Jobs Enqueued (Pacing Queue)</div>
-      </div>
-    </div>
 
-    <!-- Card: Rate Limit Statuses -->
-    <div class="card col-12">
-      <div class="card-title">
-        <span>Rate Limit Constraints & Utilization</span>
-        <span class="card-title-icon">📈</span>
-      </div>
-      <div class="limits-container">
-        <!-- TPM Limit -->
-        <div class="limit-row limit-tpm">
-          <div class="limit-header">
-            <span class="limit-label">Tokens Per Minute (TPM)</span>
-            <span class="limit-val" id="tpm-label">0 / 40,000</span>
-          </div>
-          <div class="limit-progress-bar">
-            <div class="limit-fill" id="tpm-fill"></div>
-          </div>
+      <!-- Card: Local Config Model Mapping Register -->
+      <div class="card col-12">
+        <div class="card-title">
+          <span>Dynamic Model Tier Mappings</span>
+          <span class="card-title-icon">🧠</span>
         </div>
-        <!-- RPM Limit -->
-        <div class="limit-row limit-rpm">
-          <div class="limit-header">
-            <span class="limit-label">Requests Per Minute (RPM)</span>
-            <span class="limit-val" id="rpm-label">0 / 3</span>
-          </div>
-          <div class="limit-progress-bar">
-            <div class="limit-fill" id="rpm-fill"></div>
-          </div>
+        <p class="metric-desc" style="margin-bottom: 1.5rem;">
+          Configure standard (cheap/Haiku) and premium (expensive/Sonnet) mappings per provider.
+          Regex heuristics will dynamically assign new models using keywords if not configured here.
+        </p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;" id="models-mapping-list">
+          <!-- Dynamically populated from API -->
+        </div>
+      </div>
+
+      <!-- Card: Historical Analytics Database -->
+      <div class="card col-12">
+        <div class="card-title">
+          <span>Historical Sessions Log (Local Database)</span>
+          <span class="card-title-icon">📊</span>
+        </div>
+        <p class="metric-desc">Previous daemon session runs, actual token usages, and accumulated USD savings.</p>
+        <div style="overflow-x: auto; margin-top: 1rem;">
+          <table>
+            <thead>
+              <tr>
+                <th>Session ID</th>
+                <th>Run Duration</th>
+                <th>Total Jobs</th>
+                <th>Actual Tokens</th>
+                <th>Saved Tokens</th>
+                <th>Total Cost</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <tr>
+                <td colspan="6" style="text-align: center; color: var(--text-muted);">No historical runs saved yet.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -470,6 +682,22 @@
   </div>
 
   <script>
+    // Tab switching logic
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      const targetBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(tabId === 'tab-telemetry' ? 'telemetry' : 'control'));
+      if (targetBtn) targetBtn.classList.add('active');
+      
+      document.getElementById(tabId).classList.add('active');
+
+      if (tabId === 'tab-settings') {
+        loadSettings();
+        loadHistory();
+      }
+    }
+
     // Real-time Sparkline chart implementation
     const canvas = document.getElementById('multiplier-chart');
     const ctx = canvas.getContext('2d');
@@ -540,6 +768,142 @@
       ctx.fill();
     }
 
+    // Load Settings
+    let currentConfig = null;
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const config = await res.json();
+          currentConfig = config;
+          
+          document.getElementById('input-tpm').value = config.tpm || 40000;
+          document.getElementById('input-rpm').value = config.rpm || 3;
+          document.getElementById('input-budget').value = config.budgetLimit || 0;
+
+          // Render Model Mappings
+          const container = document.getElementById('models-mapping-list');
+          container.innerHTML = '';
+
+          for (const key of Object.keys(config.models)) {
+            const m = config.models[key];
+            const div = document.createElement('div');
+            div.className = 'mini-stat';
+            div.style.gap = '0.5rem';
+            div.innerHTML = `
+              <div style="font-weight:700; font-size:0.95rem; color:var(--secondary);">${key}</div>
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                <span style="color:var(--text-muted);">Standard Fallback:</span>
+                <span style="font-family:monospace;">${m.standard}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                <span style="color:var(--text-muted);">Premium Fallback:</span>
+                <span style="font-family:monospace;">${m.premium}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:0.8rem;">
+                <span style="color:var(--text-muted);">Rate per 1M (Input/Output):</span>
+                <span>$${m.inputPerMillion.toFixed(2)} / $${m.outputPerMillion.toFixed(2)}</span>
+              </div>
+            `;
+            container.appendChild(div);
+          }
+        }
+      } catch {}
+    }
+
+    // Save Settings
+    async function saveSettings(e) {
+      e.preventDefault();
+      if (!currentConfig) return;
+
+      const tpm = parseInt(document.getElementById('input-tpm').value, 10);
+      const rpm = parseInt(document.getElementById('input-rpm').value, 10);
+      const budgetLimit = parseFloat(document.getElementById('input-budget').value);
+
+      const updated = {
+        ...currentConfig,
+        tpm,
+        rpm,
+        budgetLimit
+      };
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        });
+        if (res.ok) {
+          alert('Configuration applied successfully!');
+          loadSettings();
+        }
+      } catch {
+        alert('Failed to save settings.');
+      }
+    }
+
+    // Queue Pause/Resume
+    async function controlQueue(action) {
+      try {
+        const res = await fetch('/api/control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          updateQueueState(action === 'pause');
+        }
+      } catch {}
+    }
+
+    function updateQueueState(isPaused) {
+      const btnPause = document.getElementById('btn-pause');
+      const btnResume = document.getElementById('btn-resume');
+      const statusNote = document.getElementById('queue-status-note');
+
+      if (isPaused) {
+        btnPause.style.display = 'none';
+        btnResume.style.display = 'block';
+        statusNote.innerText = 'Queue Status: Paused';
+        statusNote.style.color = 'var(--danger)';
+      } else {
+        btnPause.style.display = 'block';
+        btnResume.style.display = 'none';
+        statusNote.innerText = 'Queue Status: Running';
+        statusNote.style.color = 'var(--success)';
+      }
+    }
+
+    // Load Session History
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/history');
+        if (res.ok) {
+          const history = await res.json();
+          const tbody = document.getElementById('history-table-body');
+          if (history.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No historical runs saved yet.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = '';
+          history.reverse().forEach(record => {
+            const duration = Math.round((record.endTime - record.startTime) / 1000);
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td style="font-family:monospace; font-size:0.8rem; color:var(--secondary);">${record.id}</td>
+              <td>${duration}s</td>
+              <td>${record.totalRequests}</td>
+              <td>${record.actualTokens.toLocaleString()}</td>
+              <td style="color:var(--success); font-weight:600;">${record.savedTokens.toLocaleString()}</td>
+              <td style="color:var(--accent); font-weight:600;">$${record.cost.toFixed(4)}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+      } catch {}
+    }
+
     // Dynamic metrics updating
     async function updateMetrics() {
       let isOnline = false;
@@ -557,6 +921,9 @@
         chartHistory.push(mult);
         if (chartHistory.length > 30) chartHistory.shift();
         drawChart();
+
+        // Update Queue Control UI state dynamically
+        updateQueueState(data.isPaused);
 
         // Update Spending & Budget
         const cost = data.cost ?? 0.0;
@@ -594,13 +961,13 @@
 
         // Update Rate Limit Constraints & Utilization bars
         const tpmUsed = data.limits?.tokens ?? 0;
-        const tpmLimit = 40000; // Default nominal TPM
+        const tpmLimit = data.limits?.maxTokens || 40000;
         document.getElementById('tpm-label').innerText = `${tpmUsed.toLocaleString()} / ${tpmLimit.toLocaleString()}`;
         const tpmPct = Math.min(100, (tpmUsed / tpmLimit) * 100);
         document.getElementById('tpm-fill').style.width = `${tpmPct}%`;
 
         const rpmUsed = data.limits?.requests ?? 0;
-        const rpmLimit = 3; // Default nominal RPM
+        const rpmLimit = data.limits?.maxRequests || 3;
         document.getElementById('rpm-label').innerText = `${rpmUsed} / ${rpmLimit}`;
         const rpmPct = Math.min(100, (rpmUsed / rpmLimit) * 100);
         document.getElementById('rpm-fill').style.width = `${rpmPct}%`;
@@ -619,8 +986,6 @@
       // Check Ollama status health independently
       try {
         if (isOnline) {
-          // Send request to check if proxy detects Ollama running
-          // Or query Ollama status directly from the local browser
           const ollamaRes = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(400) });
           const ollamaBadge = document.getElementById('ollama-badge');
           if (ollamaRes.ok) {

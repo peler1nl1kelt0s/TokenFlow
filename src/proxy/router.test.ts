@@ -51,17 +51,17 @@ describe('ContextManager', () => {
 describe('MultiModelRouter', () => {
   const router = new MultiModelRouter('premium-model', 'cheap-model');
 
-  it('should route simple/greeting prompts to cheap model', () => {
+  it('should route simple/greeting prompts to cheap model', async () => {
     const request: ProviderRequest = {
       model: 'any',
       messages: [{ role: 'user', content: 'hello' }],
     };
 
-    const route = router.route(request);
+    const route = await router.route(request);
     expect(route.model).toBe('cheap-model');
   });
 
-  it('should route long/complex prompts to premium model', () => {
+  it('should route long/complex prompts to premium model', async () => {
     const request: ProviderRequest = {
       model: 'any',
       messages: [
@@ -72,17 +72,17 @@ describe('MultiModelRouter', () => {
       ],
     };
 
-    const route = router.route(request);
+    const route = await router.route(request);
     expect(route.model).toBe('premium-model');
   });
 
-  it('should respect complexity headers', () => {
+  it('should respect complexity headers', async () => {
     const request: ProviderRequest = {
       model: 'any',
       messages: [{ role: 'user', content: 'hi' }],
     };
 
-    const route = router.route(request, 'high');
+    const route = await router.route(request, 'high');
     expect(route.model).toBe('premium-model');
   });
 });

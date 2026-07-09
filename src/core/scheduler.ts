@@ -38,6 +38,10 @@ export class TokenFlowScheduler {
     this.scheduleLoop();
   }
 
+  public getIsPaused(): boolean {
+    return this.isPaused;
+  }
+
   public recordActualUsage(nominalEstimate: number, actualTokens: number) {
     this.adaptive.recordTransaction(nominalEstimate, actualTokens);
   }
