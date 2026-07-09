@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import { startProxyServer } from '../proxy/server.js';
 import { scanRepository } from '../estimators/repoScanner.js';
 import { runExecCommand } from './exec.js';
+import { runInteractiveSetup } from './setup.js';
 import { SKILL_MD_CONTENT } from '../scripts/skillTemplate.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -102,6 +103,13 @@ program
       console.error(picocolors.red(`[Error] Failed to install skill: ${err.message}`));
       process.exit(1);
     }
+  });
+
+program
+  .command('setup')
+  .description('Run the interactive TokenFlow multi-agent setup wizard')
+  .action(async () => {
+    await runInteractiveSetup();
   });
 
 program.parse(process.argv);

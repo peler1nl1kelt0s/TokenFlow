@@ -81,7 +81,16 @@ npm install -g @peler1nl1kelt0s/tokenflow
 
 *Note: Restart your terminal or run `source ~/.zshrc` to activate the shell aliases immediately.*
 
-### 2. Basic Usage (Zero-Config)
+### 2. Interactive Setup Wizard (Optional)
+If your NPM environment blocks automatic install scripts (e.g., `allow-scripts` policy), or if you prefer manual step-by-step configuration, launch the interactive setup wizard:
+
+```bash
+tf setup
+```
+
+*This parses your active home directory configurations and allows you to select which agents to integrate.*
+
+### 3. Basic Usage (Zero-Config)
 To run your favorite terminal agent under TokenFlow's adaptive pacing queues:
 
 ```bash
@@ -94,28 +103,28 @@ aider --git
 
 *These run the commands wrapped through the `tf exec` interceptor proxy automatically.*
 
-### 3. Manual Server Execution
+### 4. Manual Server Execution
 Start the reverse proxy server on a custom port with specific TPM and RPM quotas:
 
 ```bash
 tf start --port 8080 --tpm 40000 --rpm 3
 ```
 
-### 4. Running a Local Scan
+### 5. Running a Local Scan
 Scan any directory locally to generate high-speed complexity and file import telemetry:
 
 ```bash
 tf scan ./src
 ```
 
-### 5. Installing Local Workspace Skills
+### 6. Installing Local Workspace Skills
 To explicitly add the TokenFlow custom skill block to a specific project directory (e.g., to share with your team in Git):
 
 ```bash
 tf add-skill --dir .agents/skills
 ```
 
-### 6. Accessing the Dashboard
+### 7. Accessing the Dashboard
 Open your browser and navigate to the local dashboard to monitor real-time enqueues, uptime, and multiplier scaling values:
 ```text
 http://localhost:8080/dashboard
