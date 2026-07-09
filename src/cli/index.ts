@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import dotenv from 'dotenv';
 import { startProxyServer } from '../proxy/server.js';
 import { scanRepository } from '../estimators/repoScanner.js';
+import { runExecCommand } from './exec.js';
 import picocolors from 'picocolors';
 
 // Load local environment variables from .env
@@ -67,6 +68,20 @@ program
       console.error(picocolors.red(`[Error] Failed to scan repository: ${err.message}`));
       process.exit(1);
     }
+  });
+
+program
+  .command('exec')
+  .description('Run a local agent command with TokenFlow automatic redirection proxy')
+  .option('-p, --port <number>', 'Port to run the proxy server on', '8080')
+  .option('--tpm <number>', 'Token Per Minute Limit', '40000')
+  .option('--rpm <number>', 'Requests Per Minute Limit', '3')
+  .argument('<command...>', 'The agent command to execute')
+  .action((command, options) => {
+    const port = parseInt(options.port, 10);
+    const tpm = parseInt(options.tpm, 10);
+    const rpm = parseInt(options.rpm, 10);
+    runExecCommand(command, { port, tpm, rpm });
   });
 
 program.parse(process.argv);
