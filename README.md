@@ -72,25 +72,18 @@ TokenFlow automatically injects global skill definitions into **60+ popular agen
 
 ## Getting Started
 
-### 1. Installation
-Install TokenFlow globally using npm. The installer will automatically configure your shell profiles (`~/.zshrc`, `~/.bashrc`, `~/.profile`) and register skills with active local agents:
+### 1. Interactive Installation (Recommended)
+To launch the interactive setup wizard directly in your terminal (using `npx` to run without global binary installation warnings):
 
 ```bash
-npm install -g @peler1nl1kelt0s/tokenflow
-```
-
-*Note: Restart your terminal or run `source ~/.zshrc` to activate the shell aliases immediately.*
-
-### 2. Interactive Setup Wizard (Optional)
-If your NPM environment blocks automatic install scripts (e.g., `allow-scripts` policy), or if you prefer manual step-by-step configuration, launch the interactive setup wizard:
-
-```bash
-tf setup
+npx @peler1nl1kelt0s/tokenflow
 ```
 
 *This parses your active environment, checks your PATH for installed coding CLI agents (claude, aider, etc.), and allows you to selectively choose which commands to alias and which agent directories to configure with the TokenFlow skill.*
 
-### 3. Basic Usage (Zero-Config)
+*Note: Restart your terminal or run `source ~/.zshrc` to activate the shell aliases immediately.*
+
+### 2. Basic Usage (Zero-Config)
 To run your favorite terminal agent under TokenFlow's adaptive pacing queues:
 
 ```bash
@@ -103,28 +96,28 @@ aider --git
 
 *These run the commands wrapped through the `tf exec` interceptor proxy automatically.*
 
-### 4. Manual Server Execution
+### 3. Manual Server Execution
 Start the reverse proxy server on a custom port with specific TPM and RPM quotas:
 
 ```bash
 tf start --port 8080 --tpm 40000 --rpm 3
 ```
 
-### 5. Running a Local Scan
+### 4. Running a Local Scan
 Scan any directory locally to generate high-speed complexity and file import telemetry:
 
 ```bash
 tf scan ./src
 ```
 
-### 6. Installing Local Workspace Skills
+### 5. Installing Local Workspace Skills
 To explicitly add the TokenFlow custom skill block to a specific project directory (e.g., to share with your team in Git):
 
 ```bash
 tf add-skill --dir .agents/skills
 ```
 
-### 7. Accessing the Dashboard
+### 6. Accessing the Dashboard
 Open your browser and navigate to the local dashboard to monitor real-time enqueues, uptime, and multiplier scaling values:
 ```text
 http://localhost:8080/dashboard

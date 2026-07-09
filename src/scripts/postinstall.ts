@@ -31,12 +31,12 @@ async function integrateShell() {
     return; // No terminal coding agents installed, skip shell aliases
   }
 
-  // Construct dynamic alias block
-  let dynamicAliases = '\n# === TokenFlow Auto-Scheduler Integration ===\nif [ -n "$(command -v tf)" ]; then\n';
+  // Construct dynamic alias block using npx instead of tf
+  let dynamicAliases = '\n# === TokenFlow Auto-Scheduler Integration ===\n';
   for (const cmd of installedClis) {
-    dynamicAliases += `  alias ${cmd}="tf exec ${cmd}"\n`;
+    dynamicAliases += `alias ${cmd}="npx -y @peler1nl1kelt0s/tokenflow exec ${cmd}"\n`;
   }
-  dynamicAliases += 'fi\n# ============================================\n';
+  dynamicAliases += '# ============================================\n';
 
   let integrated = false;
 

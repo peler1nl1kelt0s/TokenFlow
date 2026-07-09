@@ -116,17 +116,14 @@ export async function runInteractiveSetup() {
   const executionSpinner = p.spinner();
   executionSpinner.start('Applying configuration settings...');
 
-  // Step 5a: Generate dynamic alias block based on user selection
   let shellIntegrated = false;
   if (installShell && selectedAliases.length > 0) {
-    let aliasBlockContent = '\n# === TokenFlow Auto-Scheduler Integration ===\nif [ -n "$(command -v tf)" ]; then\';';
-    
-    // Construct alias lines dynamically
-    let dynamicAliases = '\n# === TokenFlow Auto-Scheduler Integration ===\nif [ -n "$(command -v tf)" ]; then\n';
+    // Construct alias lines dynamically using npx instead of tf
+    let dynamicAliases = '\n# === TokenFlow Auto-Scheduler Integration ===\n';
     for (const cmd of selectedAliases) {
-      dynamicAliases += `  alias ${cmd}="tf exec ${cmd}"\n`;
+      dynamicAliases += `alias ${cmd}="npx -y @peler1nl1kelt0s/tokenflow exec ${cmd}"\n`;
     }
-    dynamicAliases += 'fi\n# ============================================\n';
+    dynamicAliases += '# ============================================\n';
 
     const profiles = [
       path.join(homeDir, '.zshrc'),
