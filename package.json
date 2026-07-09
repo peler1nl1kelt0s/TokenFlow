@@ -12,7 +12,7 @@
     "start": "node dist/cli/index.js",
     "dev": "tsx src/cli/index.js",
     "test": "vitest run",
-    "postinstall": "node dist/scripts/postinstall.js"
+    "postinstall": "node bin/postinstall-bootstrap.js"
   },
   "files": [
     "dist",
