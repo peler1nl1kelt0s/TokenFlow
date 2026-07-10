@@ -1,6 +1,6 @@
 {
   "name": "@peler1nl1kelt0s/tokenflow",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "An open-source resource scheduler and traffic-shaping proxy for AI agents",
   "main": "dist/index.js",
   "type": "module",

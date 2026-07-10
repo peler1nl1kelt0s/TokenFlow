@@ -17,7 +17,8 @@ const program = new Command();
 program
   .name('tf')
   .description('TokenFlow AI Execution Scheduler CLI')
-  .version('0.6.0');
+  .version('0.7.1')
+  .enablePositionalOptions();
 
 program
   .command('start')
@@ -84,6 +85,7 @@ program
 program
   .command('exec')
   .description('Run a local agent command with TokenFlow automatic redirection proxy')
+  .passThroughOptions()
   .option('-p, --port <number>', 'Port to run the proxy server on', '8080')
   .option('--tpm <number>', 'Token Per Minute Limit', '40000')
   .option('--rpm <number>', 'Requests Per Minute Limit', '3')
